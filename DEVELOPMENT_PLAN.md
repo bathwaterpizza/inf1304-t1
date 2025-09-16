@@ -11,15 +11,18 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 - Topic: `sensor-data` with multiple partitions and replication
 
 ### 2. Sensor Simulators (Producers)
-- Multiple Python applications simulating factory sensors
-- Generate periodic sensor data (temperature, vibration, energy consumption)
+- Single unified Python application (`sensor_producer.py`) that simulates factory sensors
+- Environment-driven configuration to determine sensor type (temperature, vibration, energy)
+- Multiple container instances (3 sensors) using the same codebase with different configurations
+- Generate periodic sensor data with realistic patterns and anomaly injection
 - Send data to Kafka topic `sensor-data`
 
 ### 3. Data Processors (Consumers)
-- Python applications consuming from Kafka topic
-- Belong to same consumer group for load balancing
-- Process sensor data and detect anomalies
-- Generate alerts when thresholds are exceeded
+- Single unified Python application (`sensor_consumer.py`) that processes sensor data
+- Environment-driven configuration for different processing behaviors
+- Multiple container instances for load balancing and fault tolerance
+- Belong to same consumer group for automatic load distribution
+- Process sensor data, detect anomalies, and generate alerts
 
 ### 4. Data Storage
 - Database or logging system for processed data and alerts
@@ -35,11 +38,8 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 
 ### Python Libraries
 - `confluent-kafka`: High-performance Kafka client
-- `pydantic`: Data validation and settings management
-- `asyncio`: For asynchronous operations where beneficial
-- `structlog`: Structured logging
-- `psycopg2` or `asyncpg`: PostgreSQL connectivity
-- `pytest`: Modern testing framework
+- `python-dotenv`: Environment variable management (minimal dependencies)
+- Standard library: `json`, `logging`, `asyncio`, `random`, `time`
 
 ## Development Phases
 
@@ -61,9 +61,8 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 3. Create basic project structure:
    ```
    /src
-     /producers    # Sensor simulators
-     /consumers    # Data processors
-     /shared       # Common utilities and models
+     /producers    # Single unified sensor simulator
+     /consumers    # Single unified data processor
    /config         # Configuration files
    /scripts        # Utility scripts
    /logs          # Log files
@@ -72,11 +71,15 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 
 4. Create `Makefile` with common operations:
    - `make setup` - Initialize environment and format Kafka storage
-   - `make start` - Start all services
+   - `make start` - Start infrastructure only
+   - `make full-start` - Start infrastructure + sensors
+   - `make build-sensors` - Build sensor images
+   - `make start-sensors` - Start sensor producers  
+   - `make stop-sensors` - Stop sensor producers
+   - `make logs-sensors` - View sensor logs
+   - `make monitor-sensors` - Monitor real-time data
    - `make stop` - Stop all services
    - `make clean` - Clean up containers and volumes
-   - `make logs` - View aggregated logs
-   - `make test` - Run integration tests
 
 **Git Commit**: "Initial project structure and KRaft Kafka infrastructure" ✅ **COMPLETE**
 
@@ -93,86 +96,91 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 
 **Git Commit**: "KRaft Kafka cluster setup and topic configuration" ✅ **COMPLETE**
 
-### Phase 3: Sensor Producers Implementation
-**Objective**: Implement sensor simulators that generate realistic data
+### Phase 3: Sensor Producers Implementation ✅ **COMPLETE**
+**Objective**: Implement unified sensor simulator that generates realistic data
 
 **Tasks**:
-1. Create base sensor class:
-   - `src/shared/sensor_model.py` - Data models
-   - `src/shared/kafka_producer.py` - Kafka producer wrapper
+1. Create unified sensor producer: ✅
+   - `src/producers/sensor_producer.py` - Single sensor simulator class
+   - Environment-driven configuration (SENSOR_TYPE, SENSOR_ID, etc.)
+   - Support for multiple sensor types: temperature, vibration, energy, humidity, pressure
 
-2. Implement different sensor types:
-   - `src/producers/temperature_sensor.py`
-   - `src/producers/vibration_sensor.py`
-   - `src/producers/energy_sensor.py`
+2. Sensor data generation: ✅
+   - JSON format with timestamp, sensor_id, location, readings, alert_level
+   - Configurable sampling intervals per sensor type
+   - Realistic value ranges with time-based variations and noise
+   - Alert generation: 15% warning probability, 5% critical probability
 
-3. Create sensor data generator:
-   - JSON format with timestamp, sensor_id, location, readings
-   - Configurable data generation intervals
-   - Realistic value ranges and anomaly injection
+3. Containerization: ✅
+   - `docker/Dockerfile.producer` - Single Dockerfile for all sensor types
+   - Docker Compose configuration for 3 sensor instances
+   - Environment variable configuration for different sensor types
 
-4. Dockerize sensor applications:
-   - `docker/Dockerfile.producer`
-   - Individual containers for each sensor
+4. Configuration management: ✅
+   - Environment variables for Kafka connection and sensor parameters
+   - Realistic sensor configurations with thresholds
+   - Clean logging and error handling
 
-5. Configuration management:
-   - Use environment variables for Kafka connection
-   - Configurable sensor parameters
-   - Modern Python practices: type hints, dataclasses, async/await where beneficial
-
-**Git Commit**: "Sensor producer implementations with Docker containers"
+**Git Commit**: "Unified sensor producer with environment-driven configuration" ✅ **COMPLETE**
 
 ### Phase 4: Data Consumer Implementation
-**Objective**: Implement data processors that consume and analyze sensor data
+**Objective**: Implement unified data processor that consumes and analyzes sensor data
 
 **Tasks**:
-1. Create base consumer framework:
-   - `src/shared/kafka_consumer.py` - Kafka consumer wrapper
-   - `src/shared/data_processor.py` - Base processing logic
+1. Create unified consumer framework:
+   - `src/consumers/sensor_consumer.py` - Single consumer application
+   - Environment-driven configuration for different processing modes
+   - Handle all sensor types in one codebase
 
-2. Implement data processors:
-   - `src/consumers/anomaly_detector.py` - Detect temperature/vibration anomalies
-   - `src/consumers/alert_generator.py` - Generate alerts for threshold violations
-   - `src/consumers/data_logger.py` - Log processed data
+2. Implement data processing capabilities:
+   - Real-time anomaly detection for all sensor types
+   - Alert generation and escalation logic
+   - Data aggregation and statistical analysis
+   - Configurable processing thresholds per sensor type
 
 3. Consumer group configuration:
-   - All consumers in same group: `sensor-processors`
-   - Automatic partition assignment and rebalancing
+   - All consumer instances in same group: `sensor-processors`
+   - Automatic partition assignment and load balancing
+   - Graceful rebalancing when consumers join/leave
 
 4. Data processing logic:
-   - Temperature thresholds (e.g., > 80°C = warning, > 100°C = critical)
-   - Vibration analysis for equipment health
-   - Energy consumption pattern detection
+   - Process sensor data based on sensor_type field
+   - Generate alerts for threshold violations (warning/critical)
+   - Log processed data and system events
+   - Handle different sensor patterns and anomaly detection
 
-5. Dockerize consumer applications:
-   - `docker/Dockerfile.consumer`
-   - Multiple consumer instances
+5. Containerization:
+   - `docker/Dockerfile.consumer` - Single Dockerfile for all consumers
+   - Multiple consumer instances for load balancing
+   - Environment variable configuration
 
-**Git Commit**: "Data consumer implementations with processing logic"
+**Git Commit**: "Unified data consumer with load balancing and anomaly detection"
 
 ### Phase 5: Data Storage and Logging
 **Objective**: Implement data persistence and comprehensive logging
 
 **Tasks**:
-1. Choose storage solution:
-   - PostgreSQL database for structured data
-   - File-based logging for debugging
+1. Integrate PostgreSQL database:
+   - Use existing PostgreSQL service from docker-compose
+   - Simple database schema for processed data
+   - Connection management in consumer application
 
-2. Implement data models:
-   - `src/shared/database.py` - Database connection and models
-   - Tables: sensors, readings, alerts, system_events
+2. Implement data storage:
+   - Store processed sensor readings
+   - Store generated alerts and system events
+   - Simple SQL operations (INSERT, SELECT)
 
-3. Add logging infrastructure:
-   - Structured logging with correlation IDs
-   - Log levels: DEBUG, INFO, WARN, ERROR
+3. Enhanced logging:
+   - Structured logging with timestamps and correlation
+   - Consumer group rebalancing events
+   - Processing metrics and error tracking
    - Log aggregation for monitoring
 
 4. Update docker-compose:
-   - Add PostgreSQL service
-   - Volume mounts for log files
-   - Network connectivity
+   - Volume mounts for persistent storage
+   - Environment variables for database connection
 
-**Git Commit**: "Data storage and logging infrastructure"
+**Git Commit**: "Data storage integration and enhanced logging"
 
 ### Phase 6: Monitoring and Observability
 **Objective**: Add monitoring capabilities to observe system behavior
@@ -252,19 +260,31 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 
 ### Environment Variables (docker-compose.yml)
 ```yaml
+# Sensor Producer Configuration
 environment:
-  KAFKA_BROKERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+  SENSOR_ID: "temp-sensor-001"
+  SENSOR_TYPE: "temperature"  # or "vibration", "energy"
+  KAFKA_BROKERS: "kafka1:29092,kafka2:29092,kafka3:29092"
+  SENSOR_TOPIC: "sensor-data"
+  SAMPLING_INTERVAL: "3.0"
+  FACTORY_SECTION: "production"
+  MACHINE_ID: "machine-001"
+  ZONE: "zone-a"
+
+# Consumer Configuration  
+environment:
+  KAFKA_BROKERS: "kafka1:29092,kafka2:29092,kafka3:29092"
   SENSOR_TOPIC: "sensor-data"
   ALERT_TOPIC: "alerts"
   CONSUMER_GROUP: "sensor-processors"
-  DATABASE_URL: "postgresql://user:pass@postgres:5432/factory"
+  DATABASE_URL: "postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring"
   LOG_LEVEL: "INFO"
 ```
 
-### Application Properties
-- `config/kraft.properties` - KRaft mode specific settings
-- `config/sensors.properties` - Sensor simulation parameters
-- `config/processors.properties` - Data processing thresholds
+### Simplified Configuration
+- **No separate config files needed** - Environment variables handle all configuration
+- **Single codebase approach** - Same code, different environment variables
+- **Container-based scaling** - Multiple instances of same application
 
 ## Testing Strategy
 
@@ -286,14 +306,20 @@ environment:
 
 ## Deliverables Checklist
 
-- [ ] Complete source code with Python applications
-- [ ] Docker Compose file with all services
-- [ ] Makefile with operational commands
-- [ ] Configuration files (properties and environment)
-- [ ] Failure simulation scripts
-- [ ] Comprehensive documentation
-- [ ] Test logs showing rebalancing behavior
-- [ ] Final project report
+- [x] **Infrastructure**: KRaft Kafka cluster with 3 brokers
+- [x] **Docker Compose**: Multi-service orchestration file
+- [x] **Sensor Producer**: Unified sensor simulator with environment config  
+- [x] **Containerization**: Docker setup for sensor producers
+- [x] **Makefile**: Comprehensive operational commands
+- [x] **Documentation**: Updated README and architecture docs
+- [ ] **Data Consumer**: Unified data processor with anomaly detection
+- [ ] **Data Storage**: PostgreSQL integration for processed data
+- [ ] **Failure Simulation**: Scripts for testing fault tolerance
+- [ ] **Monitoring**: Enhanced observability and logging
+- [ ] **Integration Tests**: End-to-end testing scenarios
+- [ ] **Final Report**: Complete project documentation
+
+**Current Status**: Phase 3 Complete ✅ - Ready for Phase 4 (Consumer Implementation)
 
 ## Git Workflow
 

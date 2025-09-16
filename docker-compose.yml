@@ -146,6 +146,84 @@ services:
     networks:
       - factory_network
 
+  # Temperature Sensor Producer
+  temperature-sensor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.producer
+    container_name: temperature-sensor
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    environment:
+      SENSOR_ID: temp-sensor-001
+      SENSOR_TYPE: temperature
+      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
+      SENSOR_TOPIC: sensor-data
+      SAMPLING_INTERVAL: 3.0
+      FACTORY_SECTION: production
+      MACHINE_ID: machine-001
+      ZONE: zone-a
+    networks:
+      - factory_network
+    restart: unless-stopped
+
+  # Vibration Sensor Producer
+  vibration-sensor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.producer
+    container_name: vibration-sensor
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    environment:
+      SENSOR_ID: vib-sensor-002
+      SENSOR_TYPE: vibration
+      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
+      SENSOR_TOPIC: sensor-data
+      SAMPLING_INTERVAL: 4.0
+      FACTORY_SECTION: production
+      MACHINE_ID: machine-002
+      ZONE: zone-b
+    networks:
+      - factory_network
+    restart: unless-stopped
+
+  # Energy Sensor Producer
+  energy-sensor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.producer
+    container_name: energy-sensor
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    environment:
+      SENSOR_ID: energy-sensor-003
+      SENSOR_TYPE: energy
+      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
+      SENSOR_TOPIC: sensor-data
+      SAMPLING_INTERVAL: 10.0
+      FACTORY_SECTION: utilities
+      MACHINE_ID: generator-001
+      ZONE: zone-c
+    networks:
+      - factory_network
+    restart: unless-stopped
+
 volumes:
   kafka1_data:
   kafka2_data:

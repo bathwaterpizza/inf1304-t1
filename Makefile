@@ -8,23 +8,30 @@
 	@echo "PostgreSQL:"
 	@docker compose exec postgres pg_isready -U factory_user > /dev/null 2>&1 && echo "✓ PostgreSQL: Healthy" || echo "✗ PostgreSQL: Unhealthy"tem
 
-.PHONY: help setup start stop clean logs test status topics health
+.PHONY: help setup start stop clean logs test status topics health build-sensors start-sensors stop-sensors logs-sensors wait-for-kafka
 
 # Default target
 help:
 	@echo "Factory Monitoring System - Available Commands:"
 	@echo ""
-	@echo "  setup     - Initialize environment and format Kafka storage"
-	@echo "  start     - Start all services"
-	@echo "  stop      - Stop all services"
-	@echo "  restart   - Restart all services"
-	@echo "  clean     - Clean up containers and volumes"
-	@echo "  logs      - View aggregated logs"
-	@echo "  status    - Check status of all services"
-	@echo "  topics    - Create Kafka topics"
-	@echo "  health    - Check health of all services"
-	@echo "  test      - Run integration tests"
-	@echo "  monitor   - Open Kafka UI in browser"
+	@echo "  setup         - Initialize environment and format Kafka storage"
+	@echo "  start         - Start all services (infrastructure only)"
+	@echo "  stop          - Stop all services"
+	@echo "  restart       - Restart all services"
+	@echo "  clean         - Clean up containers and volumes"
+	@echo "  logs          - View aggregated logs"
+	@echo "  status        - Check status of all services"
+	@echo "  topics        - Create Kafka topics"
+	@echo "  health        - Check health of all services"
+	@echo "  test          - Run integration tests"
+	@echo "  monitor       - Open Kafka UI in browser"
+	@echo ""
+	@echo "Sensor Management:"
+	@echo "  build-sensors - Build sensor producer images"
+	@echo "  start-sensors - Start sensor producers"
+	@echo "  stop-sensors  - Stop sensor producers"
+	@echo "  logs-sensors  - View sensor logs"
+	@echo "  full-start    - Start infrastructure + sensors"
 	@echo ""
 
 # Initialize environment and prepare Kafka storage
@@ -37,16 +44,28 @@ setup:
 	@if [ ! -f .env ]; then echo "Error: .env file not found!"; exit 1; fi
 	@echo "Setup completed successfully!"
 
-# Start all services
+# Start infrastructure services only
 start:
-	@echo "Starting Factory Monitoring System..."
-	@docker compose up -d
-	@echo "Waiting for services to be ready..."
-	@sleep 10
-	@$(MAKE) health
+	@echo "Starting Factory Monitoring Infrastructure..."
+	@docker compose up -d kafka1 kafka2 kafka3 postgres kafka-ui
+	@echo "Waiting for Kafka brokers to start..."
+	@$(MAKE) wait-for-kafka
 	@echo "Creating Kafka topics..."
 	@$(MAKE) topics
-	@echo "System started successfully!"
+	@echo "Infrastructure started successfully!"
+	@echo "Kafka UI available at: http://localhost:8080"
+	@echo ""
+	@echo "To start sensors, run: make start-sensors"
+
+# Start all services including sensors
+full-start:
+	@echo "Starting complete Factory Monitoring System..."
+	@docker compose up -d
+	@echo "Waiting for Kafka brokers to start..."
+	@$(MAKE) wait-for-kafka
+	@echo "Creating Kafka topics..."
+	@$(MAKE) topics
+	@echo "Complete system started successfully!"
 	@echo "Kafka UI available at: http://localhost:8080"
 
 # Stop all services
@@ -180,3 +199,57 @@ test-topics:
 	@echo '{"test": true, "timestamp": "'$$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "sensor_id": "test-sensor"}' | docker compose exec -T kafka1 kafka-console-producer --bootstrap-server kafka1:29092 --topic sensor-data
 	@echo "Consuming test message..."
 	@timeout 10 docker compose exec kafka1 kafka-console-consumer --bootstrap-server kafka1:29092 --topic sensor-data --from-beginning --max-messages 1 || echo "Timeout reached - this is normal for testing"
+
+# Build sensor producer images
+build-sensors:
+	@echo "Building sensor producer images..."
+	@docker build -f docker/Dockerfile.producer -t sensor-producer:latest .
+	@echo "Sensor images built successfully!"
+
+# Start sensor producers
+start-sensors:
+	@echo "Starting sensor producers..."
+	@docker compose up -d temperature-sensor vibration-sensor energy-sensor
+	@echo "Sensors started successfully!"
+
+# Stop sensor producers
+stop-sensors:
+	@echo "Stopping sensor producers..."
+	@docker compose stop temperature-sensor vibration-sensor energy-sensor
+	@echo "Sensors stopped!"
+
+# View sensor logs
+logs-sensors:
+	@echo "Viewing sensor logs (Ctrl+C to exit)..."
+	@docker compose logs -f temperature-sensor vibration-sensor energy-sensor
+
+# Monitor sensor data in real-time
+monitor-sensors:
+	@echo "Monitoring sensor data (Ctrl+C to exit)..."
+	@docker compose exec kafka1 kafka-console-consumer \
+		--bootstrap-server kafka1:29092 \
+		--topic sensor-data \
+		--from-beginning \
+		--property print.timestamp=true \
+		--property print.key=true
+
+# Wait for Kafka brokers to be ready
+wait-for-kafka:
+	@echo "Waiting for Kafka brokers to be ready..."
+	@for i in $$(seq 1 60); do \
+		if docker compose exec kafka1 kafka-broker-api-versions --bootstrap-server kafka1:29092 >/dev/null 2>&1 && \
+		   docker compose exec kafka2 kafka-broker-api-versions --bootstrap-server kafka2:29092 >/dev/null 2>&1 && \
+		   docker compose exec kafka3 kafka-broker-api-versions --bootstrap-server kafka3:29092 >/dev/null 2>&1; then \
+			echo "✓ All Kafka brokers are ready!"; \
+			$(MAKE) health; \
+			break; \
+		else \
+			echo "⏳ Kafka brokers starting... ($$i/60)"; \
+			sleep 2; \
+		fi; \
+		if [ $$i -eq 60 ]; then \
+			echo "❌ Timeout waiting for Kafka brokers"; \
+			$(MAKE) health; \
+			exit 1; \
+		fi; \
+	done
