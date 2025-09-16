@@ -224,6 +224,87 @@ services:
       - factory_network
     restart: unless-stopped
 
+  # Sensor Data Consumer 1
+  consumer-1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.consumer
+    container_name: consumer-1
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      CONSUMER_ID: consumer-001
+      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
+      SENSOR_TOPIC: sensor-data
+      ALERT_TOPIC: alerts
+      CONSUMER_GROUP: sensor-processors
+      DATABASE_URL: postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring
+      LOG_LEVEL: INFO
+    networks:
+      - factory_network
+    restart: unless-stopped
+
+  # Sensor Data Consumer 2
+  consumer-2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.consumer
+    container_name: consumer-2
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      CONSUMER_ID: consumer-002
+      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
+      SENSOR_TOPIC: sensor-data
+      ALERT_TOPIC: alerts
+      CONSUMER_GROUP: sensor-processors
+      DATABASE_URL: postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring
+      LOG_LEVEL: INFO
+    networks:
+      - factory_network
+    restart: unless-stopped
+
+  # Sensor Data Consumer 3
+  consumer-3:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.consumer
+    container_name: consumer-3
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      CONSUMER_ID: consumer-003
+      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
+      SENSOR_TOPIC: sensor-data
+      ALERT_TOPIC: alerts
+      CONSUMER_GROUP: sensor-processors
+      DATABASE_URL: postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring
+      LOG_LEVEL: INFO
+    networks:
+      - factory_network
+    restart: unless-stopped
+
 volumes:
   kafka1_data:
   kafka2_data:

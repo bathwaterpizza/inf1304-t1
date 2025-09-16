@@ -33,6 +33,14 @@ help:
 	@echo "  logs-sensors  - View sensor logs"
 	@echo "  full-start    - Start infrastructure + sensors"
 	@echo ""
+	@echo "Consumer Management:"
+	@echo "  build-consumers - Build consumer images"
+	@echo "  start-consumers - Start consumer instances"
+	@echo "  stop-consumers  - Stop consumer instances"
+	@echo "  logs-consumers  - View consumer logs"
+	@echo "  monitor-alerts  - Monitor alerts in real-time"
+	@echo "  full-system     - Start complete system (infrastructure + sensors + consumers)"
+	@echo ""
 
 # Initialize environment and prepare Kafka storage
 setup:
@@ -60,12 +68,23 @@ start:
 # Start all services including sensors
 full-start:
 	@echo "Starting complete Factory Monitoring System..."
-	@docker compose up -d
+	@docker compose up -d kafka1 kafka2 kafka3 postgres kafka-ui temperature-sensor vibration-sensor energy-sensor
 	@echo "Waiting for Kafka brokers to start..."
 	@$(MAKE) wait-for-kafka
 	@echo "Creating Kafka topics..."
 	@$(MAKE) topics
 	@echo "Complete system started successfully!"
+	@echo "Kafka UI available at: http://localhost:8080"
+
+# Start complete system including consumers
+full-system:
+	@echo "Starting complete Factory Monitoring System with consumers..."
+	@docker compose up -d
+	@echo "Waiting for Kafka brokers to start..."
+	@$(MAKE) wait-for-kafka
+	@echo "Creating Kafka topics..."
+	@$(MAKE) topics
+	@echo "Complete system with consumers started successfully!"
 	@echo "Kafka UI available at: http://localhost:8080"
 
 # Stop all services
@@ -206,11 +225,26 @@ build-sensors:
 	@docker build -f docker/Dockerfile.producer -t sensor-producer:latest .
 	@echo "Sensor images built successfully!"
 
+# Build consumer images
+build-consumers:
+	@echo "Building consumer images..."
+	@docker build -f docker/Dockerfile.consumer -t sensor-consumer:latest .
+	@echo "Consumer images built successfully!"
+
+# Build all images
+build-all: build-sensors build-consumers
+
 # Start sensor producers
 start-sensors:
 	@echo "Starting sensor producers..."
 	@docker compose up -d temperature-sensor vibration-sensor energy-sensor
 	@echo "Sensors started successfully!"
+
+# Start consumer instances
+start-consumers:
+	@echo "Starting consumer instances..."
+	@docker compose up -d consumer-1 consumer-2 consumer-3
+	@echo "Consumers started successfully!"
 
 # Stop sensor producers
 stop-sensors:
@@ -218,10 +252,21 @@ stop-sensors:
 	@docker compose stop temperature-sensor vibration-sensor energy-sensor
 	@echo "Sensors stopped!"
 
+# Stop consumer instances
+stop-consumers:
+	@echo "Stopping consumer instances..."
+	@docker compose stop consumer-1 consumer-2 consumer-3
+	@echo "Consumers stopped!"
+
 # View sensor logs
 logs-sensors:
 	@echo "Viewing sensor logs (Ctrl+C to exit)..."
 	@docker compose logs -f temperature-sensor vibration-sensor energy-sensor
+
+# View consumer logs
+logs-consumers:
+	@echo "Viewing consumer logs (Ctrl+C to exit)..."
+	@docker compose logs -f consumer-1 consumer-2 consumer-3
 
 # Monitor sensor data in real-time
 monitor-sensors:
@@ -229,6 +274,16 @@ monitor-sensors:
 	@docker compose exec kafka1 kafka-console-consumer \
 		--bootstrap-server kafka1:29092 \
 		--topic sensor-data \
+		--from-beginning \
+		--property print.timestamp=true \
+		--property print.key=true
+
+# Monitor alerts in real-time
+monitor-alerts:
+	@echo "Monitoring alerts (Ctrl+C to exit)..."
+	@docker compose exec kafka1 kafka-console-consumer \
+		--bootstrap-server kafka1:29092 \
+		--topic alerts \
 		--from-beginning \
 		--property print.timestamp=true \
 		--property print.key=true
