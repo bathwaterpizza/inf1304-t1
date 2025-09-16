@@ -17,7 +17,7 @@ A distributed sensor monitoring system for smart factories using Apache Kafka, D
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Sensors       │    │  Kafka Cluster  │    │  Processors     │
-│  (Producers)    │───▶│   (3 Brokers)   │───▶│  (Consumers)    │
+│  (Producers)    │───▶│   (3 Brokers)   │───▶│  (Consumers)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │
                                 ▼

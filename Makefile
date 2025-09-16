@@ -1,13 +1,7 @@
 # Makefile for Factory Monitoring System
 # This file provides convenient commands for managing the distributed system
 
-.PHONY: help setup start stop clean status topics health test logs Factory Monitoring System
-# This file provides convenient commands for managing the dist# Check health of all services
-health:
-	@echo "Checking service health..."
-	@echo "=========================="
-	@echo "Kafka Brokers:"
-	@docker compose exec kafka1 kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1 && echo "✓ Kafka1: Healthy" || echo "✗ Kafka1: Unhealthy"
+.PHONY: help setup start stop clean status topics health test logs verify-cluster test-connectivity test-topics test-external
 	@docker compose exec kafka2 kafka-broker-api-versions --bootstrap-server localhost:9094 > /dev/null 2>&1 && echo "✓ Kafka2: Healthy" || echo "✗ Kafka2: Unhealthy"
 	@docker compose exec kafka3 kafka-broker-api-versions --bootstrap-server localhost:9096 > /dev/null 2>&1 && echo "✓ Kafka3: Healthy" || echo "✗ Kafka3: Unhealthy"
 	@echo ""
@@ -153,3 +147,36 @@ cluster-info:
 # Tail logs from specific service
 tail-%:
 	@docker compose logs -f --tail=100 $*
+
+# Comprehensive cluster verification
+verify-cluster:
+	@echo "Building cluster verification image..."
+	@docker build -f docker/Dockerfile.tester -t factory-tester:latest .
+	@echo "Running comprehensive cluster verification..."
+	@docker run --rm --network t1_factory_network factory-tester:latest
+
+# Quick cluster connectivity test
+test-connectivity:
+	@echo "Testing Kafka cluster connectivity..."
+	@docker compose exec kafka1 kafka-broker-api-versions --bootstrap-server kafka1:29092 >/dev/null && echo "✓ Kafka1 accessible" || echo "✗ Kafka1 not accessible"
+	@docker compose exec kafka2 kafka-broker-api-versions --bootstrap-server kafka2:29092 >/dev/null && echo "✓ Kafka2 accessible" || echo "✗ Kafka2 not accessible"
+	@docker compose exec kafka3 kafka-broker-api-versions --bootstrap-server kafka3:29092 >/dev/null && echo "✓ Kafka3 accessible" || echo "✗ Kafka3 not accessible"
+
+# Test external connectivity from host
+test-external:
+	@echo "Testing external Kafka connectivity from host..."
+	@echo "================================================"
+	@echo -n "Kafka1 (localhost:9092): "
+	@timeout 5 nc -z localhost 9092 && echo "✓ Connected" || echo "✗ Connection failed"
+	@echo -n "Kafka2 (localhost:9094): "
+	@timeout 5 nc -z localhost 9094 && echo "✓ Connected" || echo "✗ Connection failed"
+	@echo -n "Kafka3 (localhost:9096): "
+	@timeout 5 nc -z localhost 9096 && echo "✓ Connected" || echo "✗ Connection failed"
+
+# Test topic operations
+test-topics:
+	@echo "Testing topic operations..."
+	@echo "Producing test message..."
+	@echo '{"test": true, "timestamp": "'$$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "sensor_id": "test-sensor"}' | docker compose exec -T kafka1 kafka-console-producer --bootstrap-server kafka1:29092 --topic sensor-data
+	@echo "Consuming test message..."
+	@timeout 10 docker compose exec kafka1 kafka-console-consumer --bootstrap-server kafka1:29092 --topic sensor-data --from-beginning --max-messages 1 || echo "Timeout reached - this is normal for testing"
