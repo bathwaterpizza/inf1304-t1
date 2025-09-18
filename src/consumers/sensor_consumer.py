@@ -14,6 +14,9 @@ import time
 from datetime import datetime
 from typing import Dict, Any, Optional
 from confluent_kafka import Consumer, Producer, KafkaError
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from psycopg2.pool import SimpleConnectionPool
 
 
 class SensorConsumer:
@@ -29,6 +32,7 @@ class SensorConsumer:
         sensor_topic: str = "sensor-data",
         alert_topic: str = "alerts",
         consumer_group: str = "sensor-processors",
+        database_url: Optional[str] = None,
     ):
         """
         Initialize the sensor consumer.
@@ -39,11 +43,13 @@ class SensorConsumer:
             sensor_topic: Topic to consume sensor data from
             alert_topic: Topic to publish alerts to
             consumer_group: Consumer group for load balancing
+            database_url: PostgreSQL connection URL
         """
         self.consumer_id = consumer_id
         self.sensor_topic = sensor_topic
         self.alert_topic = alert_topic
         self.consumer_group = consumer_group
+        self.database_url = database_url or os.getenv("DATABASE_URL")
         self.running = False
         self.processed_count = 0
 
@@ -89,6 +95,11 @@ class SensorConsumer:
         self.consumer.subscribe([sensor_topic])
         self.logger.info(f"Subscribed to topic: {sensor_topic}")
 
+        # Setup database connection
+        self.db_pool = None
+        if self.database_url:
+            self._init_database()
+
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -101,6 +112,41 @@ class SensorConsumer:
         """Handle shutdown signals."""
         self.logger.info(f"Received signal {signum}, shutting down...")
         self.stop()
+
+    def _init_database(self):
+        """Initialize PostgreSQL connection pool."""
+        try:
+            # Create connection pool
+            self.db_pool = SimpleConnectionPool(
+                minconn=1, maxconn=5, dsn=self.database_url
+            )
+
+            # Test connection and register sensors
+            self._register_sensors()
+            self.logger.info("Database connection pool initialized")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize database: {e}")
+            self.db_pool = None
+
+    def _register_sensors(self):
+        """Register sensors in the database if they don't exist."""
+        if not self.db_pool:
+            return
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            # This will be called by each consumer, but INSERT ON CONFLICT will handle duplicates
+            # We'll register sensors as we encounter them in the data
+            self.logger.debug("Sensor registration ready")
+
+        except Exception as e:
+            self.logger.error(f"Error setting up sensor registration: {e}")
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
 
     def _load_anomaly_patterns(self) -> Dict[str, Dict[str, Any]]:
         """Load anomaly detection patterns for different sensor types."""
@@ -137,6 +183,129 @@ class SensorConsumer:
             },
         }
 
+    def _store_sensor_reading(self, sensor_data: Dict[str, Any]) -> bool:
+        """Store sensor reading in the database."""
+        if not self.db_pool:
+            return False
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            # Ensure sensor exists
+            self._ensure_sensor_exists(cursor, sensor_data)
+
+            # Insert sensor reading
+            insert_query = """
+                INSERT INTO sensor_readings (
+                    sensor_id, timestamp_utc, sensor_type, reading_value, 
+                    unit, alert_level, quality, location, metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+
+            cursor.execute(
+                insert_query,
+                (
+                    sensor_data.get("sensor_id"),
+                    sensor_data.get("timestamp"),
+                    sensor_data.get("sensor_type"),
+                    sensor_data.get("value"),
+                    sensor_data.get("unit"),
+                    sensor_data.get("alert_level", "normal"),
+                    sensor_data.get("quality", 1.0),
+                    json.dumps(sensor_data.get("location", {})),
+                    json.dumps(sensor_data.get("metadata", {})),
+                ),
+            )
+
+            conn.commit()
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error storing sensor reading: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
+
+    def _store_alert(self, alert_data: Dict[str, Any]) -> bool:
+        """Store alert in the database."""
+        if not self.db_pool:
+            return False
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            insert_query = """
+                INSERT INTO alerts (
+                    alert_id, sensor_id, sensor_type, anomaly_type, severity,
+                    sensor_value, sensor_unit, sensor_alert_level, description,
+                    location, detected_by, timestamp_utc, metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (alert_id) DO NOTHING
+            """
+
+            cursor.execute(
+                insert_query,
+                (
+                    alert_data.get("alert_id"),
+                    alert_data.get("sensor_id"),
+                    alert_data.get("sensor_type"),
+                    alert_data.get("anomaly_type"),
+                    alert_data.get("severity"),
+                    alert_data.get("sensor_value"),
+                    alert_data.get("sensor_unit"),
+                    alert_data.get("sensor_alert_level"),
+                    alert_data.get("description"),
+                    json.dumps(alert_data.get("location", {})),
+                    alert_data.get("detected_by"),
+                    alert_data.get("timestamp"),
+                    json.dumps({}),  # Additional metadata
+                ),
+            )
+
+            conn.commit()
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error storing alert: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
+
+    def _ensure_sensor_exists(self, cursor, sensor_data: Dict[str, Any]):
+        """Ensure sensor exists in the database."""
+        try:
+            insert_query = """
+                INSERT INTO sensors (sensor_id, sensor_type, location, metadata)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (sensor_id) DO NOTHING
+            """
+
+            # Extract metadata from sensor_data
+            metadata = sensor_data.get("metadata", {})
+
+            cursor.execute(
+                insert_query,
+                (
+                    sensor_data.get("sensor_id"),
+                    sensor_data.get("sensor_type"),
+                    json.dumps(sensor_data.get("location", {})),
+                    json.dumps(metadata),
+                ),
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error ensuring sensor exists: {e}")
+
     def process_sensor_data(
         self, sensor_data: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
@@ -166,11 +335,16 @@ class SensorConsumer:
         # Keep only recent readings (last 10 readings)
         self.recent_readings[sensor_id] = self.recent_readings[sensor_id][-10:]
 
+        # Store sensor reading in database
+        self._store_sensor_reading(sensor_data)
+
         # Detect anomalies based on patterns
         anomaly_type = self._detect_anomaly(sensor_id, sensor_type, sensor_data)
 
         if anomaly_type:
             alert = self._create_alert(sensor_data, anomaly_type)
+            # Store alert in database
+            self._store_alert(alert)
             self.logger.warning(
                 f"Anomaly detected for {sensor_id}: {anomaly_type} - "
                 f"Value: {value}{sensor_data.get('unit', '')} (Alert: {current_alert_level})"
@@ -414,6 +588,10 @@ class SensorConsumer:
                 remaining = self.producer.flush(timeout=10)
                 if remaining > 0:
                     self.logger.warning(f"{remaining} alert messages not delivered")
+
+            if self.db_pool:
+                self.logger.info("Closing database connection pool...")
+                self.db_pool.closeall()
 
             self.logger.info(
                 f"Consumer {self.consumer_id} stopped. Total processed: {self.processed_count}"

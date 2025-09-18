@@ -2,5 +2,8 @@
 # Core Dependencies
 confluent-kafka==2.3.0
 
+# Database support
+psycopg2-binary==2.9.7
+
 # Additional utilities (if needed for env file support)
 python-dotenv==1.0.0
