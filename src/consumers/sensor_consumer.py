@@ -13,10 +13,10 @@ import signal
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional
-from confluent_kafka import Consumer, Producer, KafkaError
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from psycopg2.pool import SimpleConnectionPool
+from confluent_kafka import Consumer, Producer, KafkaError  # type: ignore
+import psycopg2  # type: ignore  # noqa: F401
+from psycopg2.extras import RealDictCursor  # type: ignore  # noqa: F401
+from psycopg2.pool import SimpleConnectionPool  # type: ignore
 
 
 class SensorConsumer:
@@ -54,8 +54,9 @@ class SensorConsumer:
         self.processed_count = 0
 
         # Setup logging
+        log_level = os.getenv("LOG_LEVEL", "INFO").upper()
         logging.basicConfig(
-            level=logging.INFO,
+            level=getattr(logging, log_level, logging.INFO),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         self.logger = logging.getLogger(f"consumer-{consumer_id}")
@@ -136,7 +137,6 @@ class SensorConsumer:
         conn = None
         try:
             conn = self.db_pool.getconn()
-            cursor = conn.cursor()
 
             # This will be called by each consumer, but INSERT ON CONFLICT will handle duplicates
             # We'll register sensors as we encounter them in the data
@@ -149,37 +149,58 @@ class SensorConsumer:
                 self.db_pool.putconn(conn)
 
     def _load_anomaly_patterns(self) -> Dict[str, Dict[str, Any]]:
-        """Load anomaly detection patterns for different sensor types."""
+        """Load anomaly detection patterns for different sensor types with environment overrides."""
         return {
             "temperature": {
                 "consecutive_high_threshold": 3,  # Number of consecutive high readings
                 "rapid_change_threshold": 10.0,  # °C change per reading
                 "baseline_deviation": 15.0,  # °C deviation from baseline
                 "time_window_minutes": 5,
+                "warning_threshold": float(
+                    os.getenv("TEMPERATURE_WARNING_THRESHOLD", "35.0")
+                ),
+                "critical_threshold": float(
+                    os.getenv("TEMPERATURE_CRITICAL_THRESHOLD", "40.0")
+                ),
             },
             "vibration": {
                 "consecutive_high_threshold": 2,
                 "rapid_change_threshold": 3.0,  # mm/s change per reading
                 "baseline_deviation": 2.0,  # mm/s deviation from baseline
                 "time_window_minutes": 3,
+                "warning_threshold": float(
+                    os.getenv("VIBRATION_WARNING_THRESHOLD", "5.0")
+                ),
+                "critical_threshold": float(
+                    os.getenv("VIBRATION_CRITICAL_THRESHOLD", "7.0")
+                ),
             },
             "energy": {
                 "consecutive_high_threshold": 3,
                 "rapid_change_threshold": 50.0,  # kW change per reading
                 "baseline_deviation": 40.0,  # kW deviation from baseline
                 "time_window_minutes": 10,
+                "anomaly_threshold": float(
+                    os.getenv("ENERGY_ANOMALY_THRESHOLD", "20.0")
+                ),
+                "warning_threshold": 150.0,
+                "critical_threshold": 180.0,
             },
             "humidity": {
                 "consecutive_high_threshold": 4,
                 "rapid_change_threshold": 15.0,  # % change per reading
                 "baseline_deviation": 20.0,  # % deviation from baseline
                 "time_window_minutes": 8,
+                "warning_threshold": 60.0,
+                "critical_threshold": 65.0,
             },
             "pressure": {
                 "consecutive_high_threshold": 3,
                 "rapid_change_threshold": 20.0,  # hPa change per reading
                 "baseline_deviation": 30.0,  # hPa deviation from baseline
                 "time_window_minutes": 5,
+                "warning_threshold": 1040.0,
+                "critical_threshold": 1045.0,
             },
         }
 

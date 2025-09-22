@@ -162,12 +162,15 @@ services:
     environment:
       SENSOR_ID: temp-sensor-001
       SENSOR_TYPE: temperature
-      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
-      SENSOR_TOPIC: sensor-data
-      SAMPLING_INTERVAL: 3.0
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      SENSOR_TOPIC: ${SENSOR_TOPIC}
+      SAMPLING_INTERVAL: ${SENSOR_INTERVAL_SECONDS}
       FACTORY_SECTION: production
       MACHINE_ID: machine-001
       ZONE: zone-a
+      LOG_LEVEL: ${LOG_LEVEL}
+      TEMPERATURE_WARNING_THRESHOLD: ${TEMPERATURE_WARNING_THRESHOLD}
+      TEMPERATURE_CRITICAL_THRESHOLD: ${TEMPERATURE_CRITICAL_THRESHOLD}
     networks:
       - factory_network
     restart: unless-stopped
@@ -188,12 +191,15 @@ services:
     environment:
       SENSOR_ID: vib-sensor-002
       SENSOR_TYPE: vibration
-      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
-      SENSOR_TOPIC: sensor-data
-      SAMPLING_INTERVAL: 4.0
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      SENSOR_TOPIC: ${SENSOR_TOPIC}
+      SAMPLING_INTERVAL: ${SENSOR_INTERVAL_SECONDS}
       FACTORY_SECTION: production
       MACHINE_ID: machine-002
       ZONE: zone-b
+      LOG_LEVEL: ${LOG_LEVEL}
+      VIBRATION_WARNING_THRESHOLD: ${VIBRATION_WARNING_THRESHOLD}
+      VIBRATION_CRITICAL_THRESHOLD: ${VIBRATION_CRITICAL_THRESHOLD}
     networks:
       - factory_network
     restart: unless-stopped
@@ -214,12 +220,14 @@ services:
     environment:
       SENSOR_ID: energy-sensor-003
       SENSOR_TYPE: energy
-      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
-      SENSOR_TOPIC: sensor-data
-      SAMPLING_INTERVAL: 10.0
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      SENSOR_TOPIC: ${SENSOR_TOPIC}
+      SAMPLING_INTERVAL: ${SENSOR_INTERVAL_SECONDS}
       FACTORY_SECTION: utilities
       MACHINE_ID: generator-001
       ZONE: zone-c
+      LOG_LEVEL: ${LOG_LEVEL}
+      ENERGY_ANOMALY_THRESHOLD: ${ENERGY_ANOMALY_THRESHOLD}
     networks:
       - factory_network
     restart: unless-stopped
@@ -241,12 +249,19 @@ services:
         condition: service_healthy
     environment:
       CONSUMER_ID: consumer-001
-      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
-      SENSOR_TOPIC: sensor-data
-      ALERT_TOPIC: alerts
-      CONSUMER_GROUP: sensor-processors
-      DATABASE_URL: postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring
-      LOG_LEVEL: INFO
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      SENSOR_TOPIC: ${SENSOR_TOPIC}
+      ALERT_TOPIC: ${ALERT_TOPIC}
+      CONSUMER_GROUP: ${CONSUMER_GROUP}
+      DATABASE_URL: ${DATABASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
+      DEBUG: ${DEBUG}
+      ENABLE_METRICS: ${ENABLE_METRICS}
+      TEMPERATURE_WARNING_THRESHOLD: ${TEMPERATURE_WARNING_THRESHOLD}
+      TEMPERATURE_CRITICAL_THRESHOLD: ${TEMPERATURE_CRITICAL_THRESHOLD}
+      VIBRATION_WARNING_THRESHOLD: ${VIBRATION_WARNING_THRESHOLD}
+      VIBRATION_CRITICAL_THRESHOLD: ${VIBRATION_CRITICAL_THRESHOLD}
+      ENERGY_ANOMALY_THRESHOLD: ${ENERGY_ANOMALY_THRESHOLD}
     networks:
       - factory_network
     restart: unless-stopped
@@ -268,12 +283,19 @@ services:
         condition: service_healthy
     environment:
       CONSUMER_ID: consumer-002
-      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
-      SENSOR_TOPIC: sensor-data
-      ALERT_TOPIC: alerts
-      CONSUMER_GROUP: sensor-processors
-      DATABASE_URL: postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring
-      LOG_LEVEL: INFO
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      SENSOR_TOPIC: ${SENSOR_TOPIC}
+      ALERT_TOPIC: ${ALERT_TOPIC}
+      CONSUMER_GROUP: ${CONSUMER_GROUP}
+      DATABASE_URL: ${DATABASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
+      DEBUG: ${DEBUG}
+      ENABLE_METRICS: ${ENABLE_METRICS}
+      TEMPERATURE_WARNING_THRESHOLD: ${TEMPERATURE_WARNING_THRESHOLD}
+      TEMPERATURE_CRITICAL_THRESHOLD: ${TEMPERATURE_CRITICAL_THRESHOLD}
+      VIBRATION_WARNING_THRESHOLD: ${VIBRATION_WARNING_THRESHOLD}
+      VIBRATION_CRITICAL_THRESHOLD: ${VIBRATION_CRITICAL_THRESHOLD}
+      ENERGY_ANOMALY_THRESHOLD: ${ENERGY_ANOMALY_THRESHOLD}
     networks:
       - factory_network
     restart: unless-stopped
@@ -295,12 +317,19 @@ services:
         condition: service_healthy
     environment:
       CONSUMER_ID: consumer-003
-      KAFKA_BROKERS: kafka1:29092,kafka2:29092,kafka3:29092
-      SENSOR_TOPIC: sensor-data
-      ALERT_TOPIC: alerts
-      CONSUMER_GROUP: sensor-processors
-      DATABASE_URL: postgresql://factory_user:factory_pass@postgres:5432/factory_monitoring
-      LOG_LEVEL: INFO
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      SENSOR_TOPIC: ${SENSOR_TOPIC}
+      ALERT_TOPIC: ${ALERT_TOPIC}
+      CONSUMER_GROUP: ${CONSUMER_GROUP}
+      DATABASE_URL: ${DATABASE_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
+      DEBUG: ${DEBUG}
+      ENABLE_METRICS: ${ENABLE_METRICS}
+      TEMPERATURE_WARNING_THRESHOLD: ${TEMPERATURE_WARNING_THRESHOLD}
+      TEMPERATURE_CRITICAL_THRESHOLD: ${TEMPERATURE_CRITICAL_THRESHOLD}
+      VIBRATION_WARNING_THRESHOLD: ${VIBRATION_WARNING_THRESHOLD}
+      VIBRATION_CRITICAL_THRESHOLD: ${VIBRATION_CRITICAL_THRESHOLD}
+      ENERGY_ANOMALY_THRESHOLD: ${ENERGY_ANOMALY_THRESHOLD}
     networks:
       - factory_network
     restart: unless-stopped

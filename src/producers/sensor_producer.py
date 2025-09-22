@@ -14,7 +14,7 @@ import signal
 import time
 from datetime import datetime
 from typing import Dict, Any
-from confluent_kafka import Producer
+from confluent_kafka import Producer  # type: ignore
 
 
 class SensorProducer:
@@ -48,8 +48,9 @@ class SensorProducer:
         self.running = False
 
         # Setup logging
+        log_level = os.getenv("LOG_LEVEL", "INFO").upper()
         logging.basicConfig(
-            level=logging.INFO,
+            level=getattr(logging, log_level, logging.INFO),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         self.logger = logging.getLogger(f"sensor-{sensor_id}")
@@ -86,15 +87,19 @@ class SensorProducer:
         self.stop()
 
     def _get_sensor_config(self, sensor_type: str) -> Dict[str, Any]:
-        """Get configuration for specific sensor type."""
+        """Get configuration for specific sensor type with environment overrides."""
         configs = {
             "temperature": {
                 "base_value": 25.0,
                 "min_value": 15.0,
                 "max_value": 45.0,
                 "unit": "°C",
-                "warning_threshold": 35.0,
-                "critical_threshold": 40.0,
+                "warning_threshold": float(
+                    os.getenv("TEMPERATURE_WARNING_THRESHOLD", "35.0")
+                ),
+                "critical_threshold": float(
+                    os.getenv("TEMPERATURE_CRITICAL_THRESHOLD", "40.0")
+                ),
                 "noise_factor": 2.0,
             },
             "vibration": {
@@ -102,8 +107,12 @@ class SensorProducer:
                 "min_value": 0.5,
                 "max_value": 8.0,
                 "unit": "mm/s",
-                "warning_threshold": 5.0,
-                "critical_threshold": 7.0,
+                "warning_threshold": float(
+                    os.getenv("VIBRATION_WARNING_THRESHOLD", "5.0")
+                ),
+                "critical_threshold": float(
+                    os.getenv("VIBRATION_CRITICAL_THRESHOLD", "7.0")
+                ),
                 "noise_factor": 0.5,
             },
             "energy": {
@@ -114,6 +123,10 @@ class SensorProducer:
                 "warning_threshold": 150.0,
                 "critical_threshold": 180.0,
                 "noise_factor": 10.0,
+                # For energy, we use anomaly threshold differently
+                "anomaly_threshold": float(
+                    os.getenv("ENERGY_ANOMALY_THRESHOLD", "20.0")
+                ),
             },
             "humidity": {
                 "base_value": 45.0,
@@ -210,14 +223,15 @@ class SensorProducer:
         return reading
 
     def publish_reading(self, reading: Dict[str, Any]) -> bool:
-        """Publish sensor reading to Kafka."""
+        """Publish sensor reading to Kafka using round-robin partitioning."""
         try:
-            message_key = self.sensor_id
+            # Remove message key to enable round-robin partitioning for better load balancing
+            # Each message will be distributed evenly across all partitions
             message_value = json.dumps(reading)
 
             self.producer.produce(
                 topic=self.topic,
-                key=message_key,
+                key=None,  # No key = round-robin partitioning
                 value=message_value,
                 callback=self._delivery_callback,
             )
