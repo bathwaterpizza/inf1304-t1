@@ -205,13 +205,11 @@
     </div>
     
     <div class="dashboard-grid">
-        <!-- Throughput Metrics Card -->
+        <!-- Rebalancing Events Card -->
         <div class="card">
-            <h3>📈 Throughput Metrics</h3>
-            <div id="throughputMetrics">
-                <div class="chart-container">
-                    Real-time throughput chart will be displayed here
-                </div>
+            <h3>� Rebalancing Events</h3>
+            <div id="rebalancingEvents">
+                <div>Loading rebalancing data...</div>
             </div>
         </div>
         
@@ -220,16 +218,6 @@
             <h3>⚠️ Recent Alerts</h3>
             <div id="recentAlerts">
                 <div>Loading alert data...</div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="dashboard-grid">
-        <!-- Rebalancing Events Card -->
-        <div class="card">
-            <h3>🔄 Rebalancing Events</h3>
-            <div id="rebalancingEvents">
-                <div>Loading rebalancing data...</div>
             </div>
         </div>
     </div>
@@ -271,7 +259,6 @@
                     fetchConsumerHealth(),
                     fetchProducerHealth(),
                     fetchPartitionAssignment(),
-                    fetchThroughputMetrics(),
                     fetchRecentAlerts()
                 ]);
                 
@@ -423,53 +410,6 @@
                 document.getElementById('partitionAssignment').innerHTML = html;
             } catch (error) {
                 console.error('Error fetching partition assignment:', error);
-            }
-        }
-        
-        async function fetchThroughputMetrics() {
-            try {
-                const response = await fetch('/api/real-time-metrics');
-                const data = await response.json();
-                
-                let html = '<h4>Last 10 Minutes:</h4>';
-                
-                // Consumer throughput
-                html += '<div><strong>Consumer Throughput:</strong></div>';
-                const consumerMetrics = data.consumer_throughput || [];
-                
-                if (consumerMetrics.length > 0) {
-                    consumerMetrics.forEach(metric => {
-                        html += `
-                            <div class="metric-row">
-                                <span>${metric.component_id}</span>
-                                <span class="metric-value">${metric.value} msgs</span>
-                            </div>
-                        `;
-                    });
-                } else {
-                    html += '<div class="metric-row"><span>No consumer activity</span></div>';
-                }
-                
-                // Producer throughput
-                html += '<div style="margin-top: 15px;"><strong>Producer Throughput:</strong></div>';
-                const producerMetrics = data.producer_throughput || [];
-                
-                if (producerMetrics.length > 0) {
-                    producerMetrics.forEach(metric => {
-                        html += `
-                            <div class="metric-row">
-                                <span>${metric.component_id}</span>
-                                <span class="metric-value">${metric.value} total</span>
-                            </div>
-                        `;
-                    });
-                } else {
-                    html += '<div class="metric-row"><span>No producer activity</span></div>';
-                }
-                
-                document.getElementById('throughputMetrics').innerHTML = html;
-            } catch (error) {
-                console.error('Error fetching throughput metrics:', error);
             }
         }
         
