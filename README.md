@@ -81,43 +81,53 @@ graph TB
 - Make (for convenience commands)
 - Python 3.11+ (for local development)
 
-### 1. Start Infrastructure
+### 1. Quick Start - Everything at Once
 
 ```bash
-# Initialize and start Kafka cluster + PostgreSQL
+# Build and start complete system (recommended for first-time users)
+make all
+
+# Open monitoring dashboard (http://localhost:5000)
+make dashboard
+
+# Open Kafka UI (http://localhost:8080)
+make monitor
+```
+
+### 2. Step-by-Step Setup
+
+```bash
+# Start infrastructure only
 make start
 
-# Verify cluster health
-make health
-```
+# Start sensor producers
+make start-producers
 
-### 2. Start Sensor Producers
-
-```bash
-# Build and start all sensor producers
-make build-sensors
-make start-sensors
-
-# Or start everything at once
-make full-start
-```
-
-### 3. Start Data Consumers
-
-```bash
-# Build and start all data consumers
-make build-consumers
+# Start data consumers
 make start-consumers
 
-# Or start complete system with monitoring
-make full-stack
+# Start monitoring dashboard
+make start-monitoring
+```
+
+### 3. Alternative Startup Options
+
+```bash
+# Infrastructure + producers only (no consumers)
+make infrastructure-only
+
+# Infrastructure + producers + consumers (no monitoring)
+make with-consumers
+
+# Complete system with monitoring
+make with-monitoring
 ```
 
 ### 4. Monitor Real-time Data
 
 ```bash
-# View sensor logs
-make logs-sensors
+# View producer logs
+make logs-producers
 
 # View consumer logs  
 make logs-consumers
@@ -128,11 +138,11 @@ make monitor-sensors
 # Monitor alerts
 make monitor-alerts
 
-# Open Kafka UI (http://localhost:8080)
-make monitor
-
 # Open monitoring dashboard (http://localhost:5000)
 make dashboard
+
+# Open Kafka UI (http://localhost:8080)
+make monitor
 ```
 
 ## 📊 System Components
@@ -187,28 +197,36 @@ make dashboard
 
 | Command | Description |
 |---------|-------------|
+| **Quick Start** |
+| `make all` | **Build and start complete system (infrastructure + producers + consumers + monitoring)** |
 | `make help` | Show all available commands |
-| `make start` | Start infrastructure only |
-| `make full-start` | Start infrastructure + sensors |
-| `make full-system` | Start infrastructure + sensors + consumers |
-| `make full-stack` | Start complete system including monitoring dashboard |
+| `make setup` | Initialize environment and format Kafka storage |
+| **Infrastructure Management** |
+| `make start` | Start infrastructure services only (Kafka + PostgreSQL + Kafka UI) |
+| `make infrastructure-only` | Start infrastructure + producers (no consumers, no monitoring) |
+| `make with-consumers` | Start infrastructure + producers + consumers (no monitoring) |
+| `make with-monitoring` | Start complete system with monitoring dashboard |
 | `make stop` | Stop all services |
 | `make clean` | Remove containers and volumes |
 | `make status` | Check service status |
 | `make health` | Check service health |
-| `make build-sensors` | Build sensor images |
-| `make start-sensors` | Start sensor producers |
-| `make stop-sensors` | Stop sensor producers |
-| `make logs-sensors` | View sensor logs |
+| **Component Management** |
+| `make build-all` | Build all Docker images |
+| `make build-producers` | Build sensor producer images |
 | `make build-consumers` | Build consumer images |
+| `make start-producers` | Start sensor producers |
+| `make stop-producers` | Stop sensor producers |
 | `make start-consumers` | Start consumer instances |
 | `make stop-consumers` | Stop consumer instances |
+| `make start-monitoring` | Start monitoring dashboard |
+| **Monitoring & Debugging** |
+| `make logs-producers` | View sensor producer logs |
 | `make logs-consumers` | View consumer logs |
 | `make monitor-sensors` | Monitor real-time sensor data |
 | `make monitor-alerts` | Monitor alerts in real-time |
-| `make start-monitoring` | Start monitoring dashboard |
 | `make dashboard` | Open monitoring dashboard in browser |
 | `make monitor` | Open Kafka UI |
+| **Testing & Verification** |
 | `make test-external` | Test external connectivity |
 | `make verify-cluster` | Comprehensive cluster verification |
 
@@ -347,7 +365,7 @@ Access the monitoring dashboard at **http://localhost:5000**
 
 **Start complete system with monitoring**:
 ```bash
-make full-stack
+make all
 ```
 
 **Test consumer failure** (watch rebalancing in dashboard):

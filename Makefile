@@ -1,50 +1,54 @@
 # Makefile for Factory Monitoring System
 # This file provides convenient commands for managing the distributed system
 
-.PHONY: help setup start stop clean status topics health test logs verify-cluster test-connectivity test-topics test-external
-	@docker compose exec kafka2 kafka-broker-api-versions --bootstrap-server localhost:9094 > /dev/null 2>&1 && echo "✓ Kafka2: Healthy" || echo "✗ Kafka2: Unhealthy"
-	@docker compose exec kafka3 kafka-broker-api-versions --bootstrap-server localhost:9096 > /dev/null 2>&1 && echo "✓ Kafka3: Healthy" || echo "✗ Kafka3: Unhealthy"
-	@echo ""
-	@echo "PostgreSQL:"
-	@docker compose exec postgres pg_isready -U factory_user > /dev/null 2>&1 && echo "✓ PostgreSQL: Healthy" || echo "✗ PostgreSQL: Unhealthy"tem
-
-.PHONY: help setup start stop clean logs test status topics health build-sensors start-sensors stop-sensors logs-sensors wait-for-kafka
+.PHONY: help setup all start stop clean status topics health test logs verify-cluster test-connectivity test-topics test-external
+.PHONY: infrastructure-only with-consumers with-monitoring build-all build-producers build-consumers 
+.PHONY: start-producers stop-producers start-consumers stop-consumers logs-producers logs-consumers
+.PHONY: monitor-sensors monitor-alerts start-monitoring dashboard monitor wait-for-kafka
 
 # Default target
 help:
 	@echo "Factory Monitoring System - Available Commands:"
 	@echo ""
+	@echo "Quick Start:"
+	@echo "  all           - Build and start complete system (infrastructure + producers + consumers + monitoring)"
 	@echo "  setup         - Initialize environment and format Kafka storage"
-	@echo "  start         - Start all services (infrastructure only)"
+	@echo "  start         - Start infrastructure services only (Kafka + PostgreSQL + Kafka UI)"
 	@echo "  stop          - Stop all services"
 	@echo "  restart       - Restart all services"
 	@echo "  clean         - Clean up containers and volumes"
-	@echo "  logs          - View aggregated logs"
 	@echo "  status        - Check status of all services"
-	@echo "  topics        - Create Kafka topics"
 	@echo "  health        - Check health of all services"
-	@echo "  test          - Run integration tests"
-	@echo "  monitor       - Open Kafka UI in browser"
+	@echo "  logs          - View aggregated logs"
 	@echo ""
-	@echo "Sensor Management:"
-	@echo "  build-sensors - Build sensor producer images"
-	@echo "  start-sensors - Start sensor producers"
-	@echo "  stop-sensors  - Stop sensor producers"
-	@echo "  logs-sensors  - View sensor logs"
-	@echo "  full-start    - Start infrastructure + sensors"
-	@echo ""
-	@echo "Consumer Management:"
+	@echo "Component Management:"
+	@echo "  build-all     - Build all Docker images"
+	@echo "  build-producers - Build sensor producer images"
 	@echo "  build-consumers - Build consumer images"
+	@echo "  start-producers - Start sensor producers"
+	@echo "  stop-producers  - Stop sensor producers"
 	@echo "  start-consumers - Start consumer instances"
 	@echo "  stop-consumers  - Stop consumer instances"
-	@echo "  logs-consumers  - View consumer logs"
-	@echo "  monitor-alerts  - Monitor alerts in real-time"
-	@echo "  full-system     - Start complete system (infrastructure + sensors + consumers)"
-	@echo ""
-	@echo "Monitoring & Observability:"
 	@echo "  start-monitoring - Start monitoring dashboard"
-	@echo "  dashboard        - Open monitoring dashboard in browser"
-	@echo "  full-stack       - Start complete system including monitoring dashboard"
+	@echo ""
+	@echo "System Startup Options:"
+	@echo "  infrastructure-only  - Start infrastructure + producers (no consumers, no monitoring)"
+	@echo "  with-consumers      - Start infrastructure + producers + consumers (no monitoring)"
+	@echo "  with-monitoring     - Start complete system with monitoring dashboard"
+	@echo ""
+	@echo "Monitoring & Debugging:"
+	@echo "  dashboard     - Open monitoring dashboard in browser"
+	@echo "  monitor       - Open Kafka UI in browser"
+	@echo "  logs-producers - View sensor producer logs"
+	@echo "  logs-consumers - View consumer logs"
+	@echo "  monitor-sensors  - Monitor sensor data stream in real-time"
+	@echo "  monitor-alerts   - Monitor alerts in real-time"
+	@echo ""
+	@echo "Testing & Verification:"
+	@echo "  topics        - Create Kafka topics"
+	@echo "  test-external - Test external connectivity"
+	@echo "  test-topics   - Test topic operations"
+	@echo "  verify-cluster - Comprehensive cluster verification"
 	@echo ""
 
 # Initialize environment and prepare Kafka storage
@@ -57,7 +61,21 @@ setup:
 	@if [ ! -f .env ]; then echo "Error: .env file not found!"; exit 1; fi
 	@echo "Setup completed successfully!"
 
-# Start infrastructure services only
+# Build and start complete system (infrastructure + producers + consumers + monitoring)
+all: build-all
+	@echo "Building and starting complete Factory Monitoring System..."
+	@docker compose up -d
+	@echo "Waiting for Kafka brokers to start..."
+	@$(MAKE) wait-for-kafka
+	@echo "Creating Kafka topics..."
+	@$(MAKE) topics
+	@echo "Complete system started successfully!"
+	@echo "Kafka UI available at: http://localhost:8080"
+	@echo "Monitoring Dashboard available at: http://localhost:5000"
+	@echo ""
+	@echo "🎉 System is ready! Use 'make dashboard' to open monitoring dashboard"
+
+# Start infrastructure services only (Kafka + PostgreSQL + Kafka UI)
 start:
 	@echo "Starting Factory Monitoring Infrastructure..."
 	@docker compose up -d kafka1 kafka2 kafka3 postgres kafka-ui
@@ -68,39 +86,40 @@ start:
 	@echo "Infrastructure started successfully!"
 	@echo "Kafka UI available at: http://localhost:8080"
 	@echo ""
-	@echo "To start sensors, run: make start-sensors"
+	@echo "To start producers, run: make start-producers"
+	@echo "To start consumers, run: make start-consumers"
 
-# Start all services including sensors
-full-start:
-	@echo "Starting complete Factory Monitoring System..."
+# Start infrastructure + producers (no consumers, no monitoring)
+infrastructure-only:
+	@echo "Starting infrastructure with sensor producers..."
 	@docker compose up -d kafka1 kafka2 kafka3 postgres kafka-ui temperature-sensor vibration-sensor energy-sensor
 	@echo "Waiting for Kafka brokers to start..."
 	@$(MAKE) wait-for-kafka
 	@echo "Creating Kafka topics..."
 	@$(MAKE) topics
-	@echo "Complete system started successfully!"
+	@echo "Infrastructure with producers started successfully!"
 	@echo "Kafka UI available at: http://localhost:8080"
 
-# Start complete system including consumers
-full-system:
-	@echo "Starting complete Factory Monitoring System with consumers..."
+# Start infrastructure + producers + consumers (no monitoring)
+with-consumers:
+	@echo "Starting complete system with consumers (no monitoring)..."
+	@docker compose up -d kafka1 kafka2 kafka3 postgres kafka-ui temperature-sensor vibration-sensor energy-sensor consumer-1 consumer-2 consumer-3
+	@echo "Waiting for Kafka brokers to start..."
+	@$(MAKE) wait-for-kafka
+	@echo "Creating Kafka topics..."
+	@$(MAKE) topics
+	@echo "System with consumers started successfully!"
+	@echo "Kafka UI available at: http://localhost:8080"
+
+# Start complete system with monitoring dashboard
+with-monitoring:
+	@echo "Starting complete system with monitoring dashboard..."
 	@docker compose up -d
 	@echo "Waiting for Kafka brokers to start..."
 	@$(MAKE) wait-for-kafka
 	@echo "Creating Kafka topics..."
 	@$(MAKE) topics
-	@echo "Complete system with consumers started successfully!"
-	@echo "Kafka UI available at: http://localhost:8080"
-
-# Start complete system including monitoring dashboard
-full-stack:
-	@echo "Starting complete Factory Monitoring System with monitoring dashboard..."
-	@docker compose up -d
-	@echo "Waiting for Kafka brokers to start..."
-	@$(MAKE) wait-for-kafka
-	@echo "Creating Kafka topics..."
-	@$(MAKE) topics
-	@echo "Complete system started successfully!"
+	@echo "Complete system with monitoring started successfully!"
 	@echo "Kafka UI available at: http://localhost:8080"
 	@echo "Monitoring Dashboard available at: http://localhost:5000"
 
@@ -237,10 +256,10 @@ test-topics:
 	@timeout 10 docker compose exec kafka1 kafka-console-consumer --bootstrap-server kafka1:29092 --topic sensor-data --from-beginning --max-messages 1 || echo "Timeout reached - this is normal for testing"
 
 # Build sensor producer images
-build-sensors:
+build-producers:
 	@echo "Building sensor producer images..."
 	@docker build -f docker/Dockerfile.producer -t sensor-producer:latest .
-	@echo "Sensor images built successfully!"
+	@echo "Producer images built successfully!"
 
 # Build consumer images
 build-consumers:
@@ -248,14 +267,17 @@ build-consumers:
 	@docker build -f docker/Dockerfile.consumer -t sensor-consumer:latest .
 	@echo "Consumer images built successfully!"
 
-# Build all images
-build-all: build-sensors build-consumers
+# Build all images (producers + consumers + monitoring)
+build-all: build-producers build-consumers
+	@echo "Building monitoring service image..."
+	@docker build -f Dockerfile.monitoring -t monitoring-service:latest .
+	@echo "All images built successfully!"
 
 # Start sensor producers
-start-sensors:
+start-producers:
 	@echo "Starting sensor producers..."
 	@docker compose up -d temperature-sensor vibration-sensor energy-sensor
-	@echo "Sensors started successfully!"
+	@echo "Producers started successfully!"
 
 # Start consumer instances
 start-consumers:
@@ -264,10 +286,10 @@ start-consumers:
 	@echo "Consumers started successfully!"
 
 # Stop sensor producers
-stop-sensors:
+stop-producers:
 	@echo "Stopping sensor producers..."
 	@docker compose stop temperature-sensor vibration-sensor energy-sensor
-	@echo "Sensors stopped!"
+	@echo "Producers stopped!"
 
 # Stop consumer instances
 stop-consumers:
@@ -275,9 +297,9 @@ stop-consumers:
 	@docker compose stop consumer-1 consumer-2 consumer-3
 	@echo "Consumers stopped!"
 
-# View sensor logs
-logs-sensors:
-	@echo "Viewing sensor logs (Ctrl+C to exit)..."
+# View sensor producer logs
+logs-producers:
+	@echo "Viewing producer logs (Ctrl+C to exit)..."
 	@docker compose logs -f temperature-sensor vibration-sensor energy-sensor
 
 # View consumer logs
