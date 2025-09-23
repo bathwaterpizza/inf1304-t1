@@ -1,7 +1,7 @@
 # Makefile for Factory Monitoring System
 # This file provides convenient commands for managing the distributed system
 
-.PHONY: help setup all start stop clean status topics health test logs verify-cluster test-connectivity test-topics test-external
+.PHONY: help setup all start stop clean status topics health test logs test-connectivity test-topics test-external
 .PHONY: infrastructure-only with-consumers with-monitoring build-all build-producers build-consumers 
 .PHONY: start-producers stop-producers start-consumers stop-consumers logs-producers logs-consumers
 .PHONY: monitor-sensors monitor-alerts start-monitoring dashboard monitor wait-for-kafka
@@ -48,7 +48,6 @@ help:
 	@echo "  topics        - Create Kafka topics"
 	@echo "  test-external - Test external connectivity"
 	@echo "  test-topics   - Test topic operations"
-	@echo "  verify-cluster - Comprehensive cluster verification"
 	@echo ""
 
 # Initialize environment and prepare Kafka storage
@@ -194,18 +193,6 @@ health:
 	@echo "PostgreSQL:"
 	@docker compose exec postgres pg_isready -U factory_user > /dev/null 2>&1 && echo "✓ PostgreSQL: Healthy" || echo "✗ PostgreSQL: Unhealthy"
 
-# Run integration tests (to be implemented later)
-test:
-	@echo "Running integration tests..."
-	@echo "Tests will be implemented in Phase 8"
-
-# Open Kafka UI in browser
-monitor:
-	@echo "Opening Kafka UI..."
-	@echo "URL: http://localhost:8080"
-	@python3 -c "import webbrowser; webbrowser.open('http://localhost:8080')" 2>/dev/null || \
-		echo "Please open http://localhost:8080 in your browser"
-
 # Development helpers
 dev-reset: clean setup start
 
@@ -221,13 +208,6 @@ cluster-info:
 # Tail logs from specific service
 tail-%:
 	@docker compose logs -f --tail=100 $*
-
-# Comprehensive cluster verification
-verify-cluster:
-	@echo "Building cluster verification image..."
-	@docker build -f docker/Dockerfile.tester -t factory-tester:latest .
-	@echo "Running comprehensive cluster verification..."
-	@docker run --rm --network t1_factory_network factory-tester:latest
 
 # Quick cluster connectivity test
 test-connectivity:
@@ -270,7 +250,7 @@ build-consumers:
 # Build all images (producers + consumers + monitoring)
 build-all: build-producers build-consumers
 	@echo "Building monitoring service image..."
-	@docker build -f Dockerfile.monitoring -t monitoring-service:latest .
+	@docker build -f docker/Dockerfile.monitoring -t monitoring-service:latest .
 	@echo "All images built successfully!"
 
 # Start sensor producers
@@ -333,13 +313,6 @@ start-monitoring:
 	@docker compose up -d monitoring
 	@echo "Monitoring dashboard started successfully!"
 	@echo "Dashboard available at: http://localhost:5000"
-
-# Open monitoring dashboard in browser
-dashboard:
-	@echo "Opening monitoring dashboard..."
-	@which xdg-open > /dev/null 2>&1 && xdg-open http://localhost:5000 || \
-		(which open > /dev/null 2>&1 && open http://localhost:5000) || \
-		echo "Please open http://localhost:5000 in your browser"
 
 # Wait for Kafka brokers to be ready
 wait-for-kafka:

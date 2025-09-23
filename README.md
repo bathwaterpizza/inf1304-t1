@@ -1,20 +1,20 @@
-# Factory Monitoring System 🏭
+# Sistema de Monitoramento de Fábrica 🏭
 
-A distributed sensor monitoring system for smart factories using **Apache Kafka**, **Docker**, and **Python**. This project implements a scalable IoT data processing pipeline following modern distributed systems patterns.
+Um sistema distribuído de monitoramento de sensores para fábricas inteligentes usando **Apache Kafka**, **Docker** e **Python**. Este projeto implementa um pipeline escalável de processamento de dados IoT seguindo padrões modernos de sistemas distribuídos.
 
-## 🎯 Project Overview
+## 🎯 Visão Geral do Projeto
 
-This system simulates and monitors sensor data from a smart factory environment, processing real-time data streams to detect anomalies and generate alerts. The architecture demonstrates key distributed systems concepts including:
+Este sistema simula e monitora dados de sensores de um ambiente de fábrica inteligente, processando fluxos de dados em tempo real para detectar anomalias e gerar alertas. A arquitetura demonstra conceitos-chave de sistemas distribuídos incluindo:
 
-- **Event-driven architecture** with Apache Kafka
-- **Containerized microservices** with Docker
-- **Real-time data processing** and anomaly detection
-- **Scalable producer-consumer patterns**
-- **Load balancing** and automatic failover
-- **Real-time monitoring** and observability
-- **Fault tolerance** demonstration
+- **Arquitetura orientada a eventos** com Apache Kafka
+- **Microsserviços containerizados** com Docker
+- **Processamento de dados em tempo real** e detecção de anomalias
+- **Padrões escaláveis producer-consumer**
+- **Balanceamento de carga** e failover automático
+- **Monitoramento em tempo real** e observabilidade
+- **Demonstração de tolerância a falhas**
 
-## 🏗️ Architecture
+## 🏗️ Arquitetura
 
 ```mermaid
 graph TB
@@ -73,168 +73,160 @@ graph TB
     MS --> PG
 ```
 
-## 🚀 Quick Start
+## 🚀 Início Rápido
 
-### Prerequisites
+### Pré-requisitos
 
-- Docker & Docker Compose v2
-- Make (for convenience commands)
-- Python 3.11+ (for local development)
+- Docker
+- Make (para comandos de conveniência)
 
-### 1. Quick Start - Everything at Once
+### 1. Início Rápido - Tudo de Uma Vez
 
 ```bash
-# Build and start complete system (recommended for first-time users)
+# Construir e iniciar sistema completo (recomendado para a primeira run)
 make all
-
-# Open monitoring dashboard (http://localhost:5000)
-make dashboard
-
-# Open Kafka UI (http://localhost:8080)
-make monitor
 ```
 
-### 2. Step-by-Step Setup
+Abrir [dashboard](http://localhost:5000) de monitoramento - http://localhost:5000
+
+Abrir [Kafka UI](http://localhost:8080) - http://localhost:8080
+
+### 2. Configuração Passo a Passo
 
 ```bash
-# Start infrastructure only
+# Iniciar apenas infraestrutura
 make start
 
-# Start sensor producers
+# Iniciar produtores de sensores
 make start-producers
 
-# Start data consumers
+# Iniciar consumidores de dados
 make start-consumers
 
-# Start monitoring dashboard
+# Iniciar dashboard de monitoramento
 make start-monitoring
 ```
 
-### 3. Alternative Startup Options
+### 3. Opções Alternativas de Inicialização
 
 ```bash
-# Infrastructure + producers only (no consumers)
+# Infraestrutura + produtores apenas (sem consumidores)
 make infrastructure-only
 
-# Infrastructure + producers + consumers (no monitoring)
+# Infraestrutura + produtores + consumidores (sem monitoramento)
 make with-consumers
 
-# Complete system with monitoring
+# Sistema completo com monitoramento
 make with-monitoring
 ```
 
-### 4. Monitor Real-time Data
+### 4. Monitorar Dados em Tempo Real
 
 ```bash
-# View producer logs
+# Ver logs dos produtores no docker
 make logs-producers
 
-# View consumer logs  
+# Ver logs dos consumidores no docker  
 make logs-consumers
 
-# Monitor sensor data stream
+# Monitorar fluxo de dados dos sensores
 make monitor-sensors
 
-# Monitor alerts
+# Monitorar alertas
 make monitor-alerts
-
-# Open monitoring dashboard (http://localhost:5000)
-make dashboard
-
-# Open Kafka UI (http://localhost:8080)
-make monitor
 ```
 
-## 📊 System Components
+Abrir [dashboard](http://localhost:5000) de monitoramento - http://localhost:5000
 
-### Sensor Producers
+Abrir [Kafka UI](http://localhost:8080) - http://localhost:8080
 
-**Single Unified Producer** (`src/producers/sensor_producer.py`):
-- **Environment-driven configuration**: Change sensor type via `SENSOR_TYPE` env var
-- **Multiple sensor types**: temperature, vibration, energy, humidity, pressure
-- **Realistic data simulation**: Time-based patterns, noise, anomalies
-- **Alert generation**: Automatic warning/critical threshold detection
-- **Configurable sampling**: Different intervals per sensor type
-- **Health monitoring**: Reports status to monitoring database
+## 📊 Componentes do Sistema
 
-### Data Consumers
+### Produtores de Sensores
 
-**Single Unified Consumer** (`src/consumers/sensor_consumer.py`):
-- **Load balancing**: Automatic partition assignment within consumer group
-- **Anomaly detection**: Real-time threshold-based alert generation
-- **Generic processing**: Handles all sensor types in same codebase
-- **Fault tolerance**: Automatic rebalancing when consumers join/leave
-- **Health monitoring**: Reports status and partition assignments to monitoring database
-- **Data persistence**: Stores processed data and alerts in PostgreSQL
+**Producer Unificado Único** (`src/producers/sensor_producer.py`):
+- **Configuração orientada por ambiente**: Alterar tipo de sensor via variável `SENSOR_TYPE`
+- **Múltiplos tipos de sensores**: temperature, vibration, energy, humidity, pressure
+- **Simulação de dados realística**: Padrões baseados em tempo, ruído, anomalias
+- **Geração de alertas**: Detecção automática de limites de warning/critical
+- **Amostragem configurável**: Intervalos diferentes por tipo de sensor
+- **Monitoramento de saúde**: Reporta status para banco de dados de monitoramento
 
-### Kafka Infrastructure
+### Consumidores de Dados
 
-**3-Node KRaft Cluster**:
-- **Modern Kafka**: No ZooKeeper dependency (KRaft mode)
-- **High availability**: 3 brokers with replication factor 2
-- **Topics**: `sensor-data` (3 partitions), `alerts` (2 partitions)
-- **External access**: Ports 9092, 9094, 9096
-- **Load distribution**: Any producer can send to any broker, any broker can route to any consumer
+**Consumer Unificado Único** (`src/consumers/sensor_consumer.py`):
+- **Balanceamento de carga**: Atribuição automática de partições dentro do grupo de consumidores
+- **Detecção de anomalias**: Geração de alertas baseada em limites em tempo real
+- **Processamento genérico**: Manipula todos os tipos de sensores no mesmo código
+- **Tolerância a falhas**: Rebalanceamento automático quando consumidores entram/saem
+- **Monitoramento de saúde**: Reporta status e atribuições de partições para banco de monitoramento
+- **Persistência de dados**: Armazena dados processados e alertas no PostgreSQL
 
-### Monitoring & Observability
+### Infraestrutura Kafka
 
-**Real-time Monitoring Dashboard** (`src/monitoring/monitoring_service.py`):
-- **Flask Backend**: REST API providing real-time system metrics
-- **Web Frontend**: Responsive dashboard with auto-refresh
-- **System Health**: Consumer/producer status and heartbeat monitoring
-- **Partition Tracking**: Real-time partition assignment visualization
-- **Rebalancing Events**: Live monitoring of consumer rebalancing
-- **Performance Metrics**: Throughput and processing statistics
-- **Fault Tolerance Demo**: Visual demonstration of system resilience
+**Cluster KRaft de 3 Nós**:
+- **Kafka moderno**: Sem dependência do ZooKeeper (modo KRaft)
+- **Alta disponibilidade**: 3 brokers com fator de replicação 2
+- **Tópicos**: `sensor-data` (3 partições), `alerts` (2 partições)
+- **Acesso externo**: Portas 9092, 9094, 9096
+- **Distribuição de carga**: Qualquer produtor pode enviar para qualquer broker, qualquer broker pode rotear para qualquer consumidor
 
-### Data Storage
+### Monitoramento & Observabilidade
 
-- **PostgreSQL 15**: Processed data, alerts, and monitoring information
-- **Kafka UI**: Real-time cluster monitoring (port 8080)
-- **Monitoring Dashboard**: System observability (port 5000)
+**Dashboard de Monitoramento em Tempo Real** (`src/monitoring/monitoring_service.py`):
+- **Backend Flask**: API REST fornecendo métricas do sistema em tempo real
+- **Frontend Web**: Dashboard responsivo com auto-refresh
+- **Saúde do Sistema**: Monitoramento de status e heartbeat de consumidores/produtores
+- **Rastreamento de Partições**: Visualização em tempo real da atribuição de partições
+- **Eventos de Rebalanceamento**: Monitoramento ao vivo do rebalanceamento de consumidores
+- **Métricas de Performance**: Estatísticas de throughput e processamento
+- **Demo de Tolerância a Falhas**: Demonstração visual da resiliência do sistema
 
-## 🛠️ Development Commands
+### Armazenamento de Dados
 
-| Command | Description |
+- **PostgreSQL 15**: Dados processados, alertas e informações de monitoramento
+
+## 🛠️ Comandos de Desenvolvimento
+
+| Comando | Descrição |
 |---------|-------------|
-| **Quick Start** |
-| `make all` | **Build and start complete system (infrastructure + producers + consumers + monitoring)** |
-| `make help` | Show all available commands |
-| `make setup` | Initialize environment and format Kafka storage |
-| **Infrastructure Management** |
-| `make start` | Start infrastructure services only (Kafka + PostgreSQL + Kafka UI) |
-| `make infrastructure-only` | Start infrastructure + producers (no consumers, no monitoring) |
-| `make with-consumers` | Start infrastructure + producers + consumers (no monitoring) |
-| `make with-monitoring` | Start complete system with monitoring dashboard |
-| `make stop` | Stop all services |
-| `make clean` | Remove containers and volumes |
-| `make status` | Check service status |
-| `make health` | Check service health |
-| **Component Management** |
-| `make build-all` | Build all Docker images |
-| `make build-producers` | Build sensor producer images |
-| `make build-consumers` | Build consumer images |
-| `make start-producers` | Start sensor producers |
-| `make stop-producers` | Stop sensor producers |
-| `make start-consumers` | Start consumer instances |
-| `make stop-consumers` | Stop consumer instances |
-| `make start-monitoring` | Start monitoring dashboard |
-| **Monitoring & Debugging** |
-| `make logs-producers` | View sensor producer logs |
-| `make logs-consumers` | View consumer logs |
-| `make monitor-sensors` | Monitor real-time sensor data |
-| `make monitor-alerts` | Monitor alerts in real-time |
-| `make dashboard` | Open monitoring dashboard in browser |
-| `make monitor` | Open Kafka UI |
-| **Testing & Verification** |
-| `make test-external` | Test external connectivity |
-| `make verify-cluster` | Comprehensive cluster verification |
+| **Início Rápido** |
+| `make all` | **Construir e iniciar sistema completo (infraestrutura + produtores + consumidores + monitoramento)** |
+| `make help` | Mostrar todos os comandos disponíveis |
+| `make setup` | Inicializar ambiente e formatar armazenamento Kafka |
+| **Gerenciamento de Infraestrutura** |
+| `make start` | Iniciar apenas serviços de infraestrutura (Kafka + PostgreSQL + Kafka UI) |
+| `make infrastructure-only` | Iniciar infraestrutura + produtores (sem consumidores, sem monitoramento) |
+| `make with-consumers` | Iniciar infraestrutura + produtores + consumidores (sem monitoramento) |
+| `make with-monitoring` | Iniciar sistema completo com dashboard de monitoramento |
+| `make stop` | Parar todos os serviços |
+| `make clean` | Remover containers e volumes |
+| `make status` | Verificar status dos serviços |
+| `make health` | Verificar saúde dos serviços |
+| **Gerenciamento de Componentes** |
+| `make build-all` | Construir todas as imagens Docker |
+| `make build-producers` | Construir imagens dos produtores de sensores |
+| `make build-consumers` | Construir imagens dos consumidores |
+| `make start-producers` | Iniciar produtores de sensores |
+| `make stop-producers` | Parar produtores de sensores |
+| `make start-consumers` | Iniciar instâncias de consumidores |
+| `make stop-consumers` | Parar instâncias de consumidores |
+| `make start-monitoring` | Iniciar dashboard de monitoramento |
+| **Monitoramento & Debug** |
+| `make logs-producers` | Ver logs dos produtores de sensores |
+| `make logs-consumers` | Ver logs dos consumidores |
+| `make monitor-sensors` | Monitorar dados de sensores em tempo real |
+| `make monitor-alerts` | Monitorar alertas em tempo real |
+| **Testes & Verificação** |
+| `make test-external` | Testar conectividade externa |
 
-## ⚙️ Configuration
+## ⚙️ Configuração
 
-### Sensor Configuration
+### Configuração dos Sensores
 
-Each sensor type has predefined realistic ranges and thresholds:
+Cada tipo de sensor tem faixas realísticas e limites predefinidos
+
+Estes limites podem ser configurados no nosso arquivo `.env`
 
 ```python
 sensor_configs = {
@@ -259,7 +251,7 @@ sensor_configs = {
 }
 ```
 
-### Environment Variables
+### Variáveis de Ambiente
 
 ```bash
 # Sensor Configuration
@@ -287,7 +279,7 @@ MONITORING_HOST=0.0.0.0
 MONITORING_PORT=5000
 ```
 
-### Example Sensor Data
+### Exemplo de Dados do Sensor
 
 ```json
 {
@@ -311,118 +303,114 @@ MONITORING_PORT=5000
 }
 ```
 
-## 📈 Data Flow & Alert System
+## 📈 Fluxo de Dados & Sistema de Alertas
 
-### Load Balancing & Fault Tolerance
-1. **Producer Distribution**: Any sensor can send data to any Kafka broker
-2. **Consumer Load Balancing**: Kafka automatically distributes partitions among available consumers
-3. **Automatic Rebalancing**: When consumers join/leave, partitions are automatically reassigned
-4. **Health Monitoring**: Real-time tracking of producer/consumer health and status
-5. **Failover Demonstration**: Kill containers to see system adapt and recover
+### Balanceamento de Carga & Tolerância a Falhas
+1. **Distribuição de Produtores**: Qualquer sensor pode enviar dados para qualquer broker Kafka
+2. **Balanceamento de Carga dos Consumidores**: Kafka distribui automaticamente partições entre consumidores disponíveis
+3. **Rebalanceamento Automático**: Quando consumidores entram/saem, partições são automaticamente reatribuídas
+4. **Monitoramento de Saúde**: Rastreamento em tempo real da saúde e status de produtores/consumidores
+5. **Demonstração de Failover**: Mate containers para ver o sistema se adaptar e recuperar
 
-### Alert Levels
-- **Normal**: Value within expected range
-- **Warning**: 15% probability, value near warning threshold  
-- **Critical**: 5% probability, value near/above critical threshold
+### Níveis de Alerta
+- **Normal**: Valor dentro da faixa esperada
+- **Warning**: 15% de probabilidade, valor próximo ao limite de warning  
+- **Critical**: 5% de probabilidade, valor próximo/acima do limite crítico
 
-### Real-time Processing
-1. Sensors generate readings every 3-10 seconds
-2. Data published to Kafka `sensor-data` topic (load balanced across brokers)
-3. Consumers process data for anomaly detection (load balanced via partition assignment)
-4. Alerts generated for threshold violations and published to `alerts` topic
-5. Processed data and metadata stored in PostgreSQL
-6. Monitoring dashboard provides real-time visibility into system behavior
+### Processamento em Tempo Real
+1. Sensores geram leituras a cada 3-10 segundos
+2. Dados publicados no tópico Kafka `sensor-data` (balanceamento de carga entre brokers)
+3. Consumidores processam dados para detecção de anomalias (balanceamento de carga via atribuição de partições)
+4. Alertas gerados para violações de limites e publicados no tópico `alerts`
+5. Dados processados e metadados armazenados no PostgreSQL
+6. Dashboard de monitoramento fornece visibilidade em tempo real do comportamento do sistema
 
-### Monitoring Features
-- **System Status**: Real-time health of all producers and consumers
-- **Partition Assignments**: Live view of which consumers are handling which partitions
-- **Rebalancing Events**: Visual demonstration of Kafka's fault tolerance
-- **Performance Metrics**: Throughput, processing rates, and system statistics
-- **Alert Tracking**: Real-time display of anomaly detection and alert generation
+### Recursos de Monitoramento
+- **Status do Sistema**: Saúde em tempo real de todos os produtores e consumidores
+- **Atribuições de Partições**: Visualização ao vivo de quais consumidores estão manipulando quais partições
+- **Eventos de Rebalanceamento**: Demonstração visual da tolerância a falhas do Kafka
+- **Métricas de Performance**: Throughput, taxas de processamento e estatísticas do sistema
+- **Rastreamento de Alertas**: Exibição em tempo real de detecção de anomalias e geração de alertas
 
-## 🔧 Monitoring & Observability
+## 🔧 Monitoramento & Observabilidade
 
-### Real-time Dashboard
-Access the monitoring dashboard at **http://localhost:5000**
+### Dashboard em Tempo Real
+Acessar o dashboard de monitoramento em **http://localhost:5000**
 
-**Features**:
-- **System Status**: Live health indicators for all components
-- **Consumer Health**: Real-time consumer status with partition assignments
-- **Producer Health**: Producer connection status and message rates
-- **Rebalancing Events**: Live visualization of Kafka consumer rebalancing
-- **Performance Metrics**: Throughput statistics and system performance
-- **Fault Tolerance Demo**: Visual demonstration of system resilience
+**Recursos**:
+- **Status do Sistema**: Indicadores de saúde ao vivo para todos os componentes
+- **Saúde dos Consumidores**: Status de consumidores em tempo real com atribuições de partições
+- **Saúde dos Produtores**: Status de conexão dos produtores e taxas de mensagens
+- **Eventos de Rebalanceamento**: Visualização ao vivo do rebalanceamento de consumidores Kafka
+- **Métricas de Performance**: Estatísticas de throughput e performance do sistema
+- **Demo de Tolerância a Falhas**: Demonstração visual da resiliência do sistema
 
-**API Endpoints**:
-- `GET /api/system-status` - Overall system health overview
-- `GET /api/consumer-health` - Consumer status and partition assignments
-- `GET /api/producer-health` - Producer status and message rates
-- `GET /api/partition-assignment` - Current partition assignments and activity
-- `GET /api/real-time-metrics` - Real-time throughput metrics
-- `GET /api/recent-alerts` - Recent anomaly alerts and rebalancing events
+**Endpoints da API**:
+- `GET /api/system-status` - Visão geral da saúde do sistema
+- `GET /api/consumer-health` - Status dos consumidores e atribuições de partições
+- `GET /api/producer-health` - Status dos produtores e taxas de mensagens
+- `GET /api/partition-assignment` - Atribuições de partições atuais e atividade
+- `GET /api/real-time-metrics` - Métricas de throughput em tempo real
+- `GET /api/recent-alerts` - Alertas de anomalias recentes e eventos de rebalanceamento
 
-### Fault Tolerance Testing
+### Teste de Tolerância a Falhas
 
-**Start complete system with monitoring**:
+**Iniciar sistema completo com monitoramento**:
 ```bash
 make all
 ```
 
-**Test consumer failure** (watch rebalancing in dashboard):
+**Testar falha de consumidor** (observar rebalanceamento no dashboard):
 ```bash
-# Kill a consumer and watch partition reassignment
+# Matar um consumidor e observar reatribuição de partições
 docker kill consumer-1
 ```
 
-**Test producer failure** (watch health status change):
+**Testar falha de produtor** (observar mudança no status de saúde):
 ```bash
-# Kill a producer and watch health indicators
+# Matar um produtor e observar indicadores de saúde
 docker kill temperature-sensor
 ```
 
-**Monitor rebalancing events in real-time**:
+**Monitorar eventos de rebalanceamento em tempo real**:
 ```bash
-# View rebalancing events as they happen
+# Ver eventos de rebalanceamento conforme acontecem
 make monitor-alerts
 ```
 
-### Database Schema
+### Esquema do Banco de Dados
 
-The monitoring system uses enhanced PostgreSQL schema:
-- `consumer_health`: Consumer status, heartbeats, partition assignments
-- `producer_health`: Producer status, heartbeats, message rates
-- `rebalancing_events`: Real-time rebalancing event tracking
-- `sensor_readings`: Processed sensor data with metadata
-- `alerts`: Generated alerts and anomaly detection results
+- `consumer_health`: Status de consumidores, heartbeats, atribuições de partições
+- `producer_health`: Status de produtores, heartbeats, taxas de mensagens
+- `rebalancing_events`: Rastreamento de eventos de rebalanceamento em tempo real
+- `sensor_readings`: Dados de sensores processados com metadados
+- `alerts`: Alertas gerados e resultados de detecção de anomalias
 
-## 🧪 Testing & Verification
+## 🧪 Testes & Verificação
 
 ```bash
-# Test Kafka connectivity
+# Testar conectividade Kafka
 make test-external
 
-# Test topic operations
+# Testar operações de tópicos
 make test-topics
 
-# Comprehensive cluster verification
-make verify-cluster
-
-# Monitor specific sensor type
+# Monitorar tipo específico de sensor
 docker compose logs -f temperature-sensor
 
-# Test fault tolerance - kill a consumer and watch rebalancing
+# Testar tolerância a falhas - matar um consumidor e observar rebalanceamento
 docker kill consumer-1
-make dashboard  # Watch partition reassignment in real-time
+# Observar reatribuição de partições em tempo real
 
-# Test producer failure - kill a sensor and watch health status
+# Testar falha de produtor - matar um sensor e observar status de saúde
 docker kill vibration-sensor  
-make dashboard  # Watch producer health change
+# Observar mudança na saúde do produtor
 
-# Monitor rebalancing events in real-time
+# Monitorar eventos de rebalanceamento em tempo real
 make monitor-alerts
 ```
 
-## 📂 Project Structure
+## 📂 Estrutura do Projeto
 
 ```
 .
@@ -438,41 +426,9 @@ make monitor-alerts
 ├── docker/
 │   ├── Dockerfile.producer         # Sensor container image
 │   ├── Dockerfile.consumer         # Consumer container image
-│   └── Dockerfile.tester           # Testing utilities
-├── Dockerfile.monitoring           # Monitoring service image
+│   └── Dockerfile.monitoring       # Monitoring service image
 ├── docker-compose.yml              # Multi-service orchestration
 ├── Makefile                        # Development commands
 ├── requirements.txt                # Python dependencies
 └── README.md                       # This file
 ```
-
-## 🎯 Development Phases
-
-- [x] **Phase 1**: Infrastructure Setup (Kafka KRaft + PostgreSQL)
-- [x] **Phase 2**: Topic Configuration & Verification  
-- [x] **Phase 3**: Sensor Producers Implementation
-- [x] **Phase 4**: Data Consumers & Processing
-- [x] **Phase 5**: Data Storage & Database Integration
-- [x] **Phase 6**: Monitoring & Observability (Real-time Dashboard)
-- [ ] **Phase 7**: Failure Simulation & Testing
-- [ ] **Phase 8**: Performance Optimization & Documentation
-
-## 🚀 Next Steps
-
-1. **Implement Failure Simulation Scripts**: Automated testing of fault tolerance scenarios
-2. **Performance Optimization**: Load testing and horizontal scaling strategies
-3. **Advanced Analytics**: Machine learning-based anomaly detection
-4. **Alert System Enhancement**: Email/SMS notifications for critical alerts
-5. **Metrics Export**: Prometheus/Grafana integration for advanced monitoring
-
-## 🤝 Contributing
-
-This is an educational project for distributed systems learning. Feel free to:
-- Experiment with different sensor configurations
-- Add new sensor types
-- Implement consumer patterns
-- Optimize performance
-
-## 📄 License
-
-Educational project - feel free to use for learning purposes.

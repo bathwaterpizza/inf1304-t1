@@ -110,31 +110,6 @@ CREATE TABLE rebalancing_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance optimization
-CREATE INDEX idx_sensor_readings_sensor_id ON sensor_readings(sensor_id);
-CREATE INDEX idx_sensor_readings_timestamp ON sensor_readings(timestamp_utc);
-CREATE INDEX idx_sensor_readings_sensor_type ON sensor_readings(sensor_type);
-CREATE INDEX idx_sensor_readings_alert_level ON sensor_readings(alert_level);
-CREATE INDEX idx_sensor_readings_processed_by ON sensor_readings(processed_by_consumer);
-CREATE INDEX idx_sensor_readings_partition ON sensor_readings(kafka_partition);
-CREATE INDEX idx_sensor_readings_processing_time ON sensor_readings(processing_timestamp);
-CREATE INDEX idx_alerts_sensor_id ON alerts(sensor_id);
-CREATE INDEX idx_alerts_timestamp ON alerts(timestamp_utc);
-CREATE INDEX idx_alerts_status ON alerts(status);
-CREATE INDEX idx_alerts_severity ON alerts(severity);
-CREATE INDEX idx_alerts_anomaly_type ON alerts(anomaly_type);
-CREATE INDEX idx_system_events_timestamp ON system_events(timestamp_utc);
-CREATE INDEX idx_system_events_component ON system_events(component);
-CREATE INDEX idx_consumer_health_consumer_id ON consumer_health(consumer_id);
-CREATE INDEX idx_consumer_health_status ON consumer_health(status);
-CREATE INDEX idx_consumer_health_heartbeat ON consumer_health(last_heartbeat);
-CREATE INDEX idx_producer_health_producer_id ON producer_health(producer_id);
-CREATE INDEX idx_producer_health_status ON producer_health(status);
-CREATE INDEX idx_producer_health_heartbeat ON producer_health(last_heartbeat);
-CREATE INDEX idx_rebalancing_events_timestamp ON rebalancing_events(timestamp_utc);
-CREATE INDEX idx_rebalancing_events_consumer ON rebalancing_events(consumer_id);
-CREATE INDEX idx_rebalancing_events_type ON rebalancing_events(event_type);
-
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

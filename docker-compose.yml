@@ -347,7 +347,7 @@ services:
   monitoring:
     build:
       context: .
-      dockerfile: Dockerfile.monitoring
+      dockerfile: docker/Dockerfile.monitoring
     container_name: monitoring
     ports:
       - "5000:5000"
