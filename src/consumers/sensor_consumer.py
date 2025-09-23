@@ -99,7 +99,9 @@ class SensorConsumer:
         self.logger.info(f"Subscribed to topic: {sensor_topic}")
 
         # Setup rebalance callbacks to track partition assignments
-        self.consumer.subscribe([sensor_topic], on_assign=self._on_assign, on_revoke=self._on_revoke)
+        self.consumer.subscribe(
+            [sensor_topic], on_assign=self._on_assign, on_revoke=self._on_revoke
+        )
 
         # Setup database connection
         self.db_pool = None
@@ -118,10 +120,10 @@ class SensorConsumer:
         """Callback when partitions are assigned to this consumer."""
         self.assigned_partitions = [p.partition for p in partitions]
         self.logger.info(f"Partitions assigned: {self.assigned_partitions}")
-        
+
         # Record rebalancing event
-        self._record_rebalancing_event('partition_assigned', partitions)
-        
+        self._record_rebalancing_event("partition_assigned", partitions)
+
         # Update consumer health status
         self._update_consumer_health()
 
@@ -129,9 +131,9 @@ class SensorConsumer:
         """Callback when partitions are revoked from this consumer."""
         revoked_partitions = [p.partition for p in partitions]
         self.logger.info(f"Partitions revoked: {revoked_partitions}")
-        
+
         # Record rebalancing event
-        self._record_rebalancing_event('partition_revoked', partitions)
+        self._record_rebalancing_event("partition_revoked", partitions)
 
     def _record_rebalancing_event(self, event_type: str, partitions):
         """Record rebalancing events in the database."""
@@ -156,12 +158,14 @@ class SensorConsumer:
                         self.consumer_id,
                         partition.partition,
                         partition.topic,
-                        datetime.utcnow()
-                    )
+                        datetime.utcnow(),
+                    ),
                 )
 
             conn.commit()
-            self.logger.info(f"Recorded {event_type} event for {len(partitions)} partitions")
+            self.logger.info(
+                f"Recorded {event_type} event for {len(partitions)} partitions"
+            )
 
         except Exception as e:
             self.logger.error(f"Error recording rebalancing event: {e}")
@@ -203,12 +207,12 @@ class SensorConsumer:
                 upsert_query,
                 (
                     self.consumer_id,
-                    'active',
+                    "active",
                     json.dumps(self.assigned_partitions),
                     datetime.utcnow(),
                     messages_last_minute,
-                    self.processed_count
-                )
+                    self.processed_count,
+                ),
             )
 
             conn.commit()
@@ -342,7 +346,9 @@ class SensorConsumer:
             },
         }
 
-    def _store_sensor_reading(self, sensor_data: Dict[str, Any], kafka_msg=None) -> bool:
+    def _store_sensor_reading(
+        self, sensor_data: Dict[str, Any], kafka_msg=None
+    ) -> bool:
         """Store sensor reading in the database with processing metadata."""
         if not self.db_pool:
             return False
@@ -706,7 +712,9 @@ class SensorConsumer:
                 if msg is None:
                     # Update heartbeat periodically even when no messages
                     current_time = time.time()
-                    if current_time - self.last_heartbeat > 2:  # Update every 2 seconds for real-time monitoring
+                    if (
+                        current_time - self.last_heartbeat > 2
+                    ):  # Update every 2 seconds for real-time monitoring
                         self._update_consumer_health()
                         self.last_heartbeat = current_time
                     continue
@@ -734,7 +742,9 @@ class SensorConsumer:
 
                     # Update health status periodically
                     current_time = time.time()
-                    if current_time - self.last_heartbeat > 2:  # Update every 2 seconds for real-time monitoring
+                    if (
+                        current_time - self.last_heartbeat > 2
+                    ):  # Update every 2 seconds for real-time monitoring
                         self._update_consumer_health()
                         self.last_heartbeat = current_time
 

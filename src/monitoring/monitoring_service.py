@@ -7,11 +7,10 @@ for the distributed sensor monitoring system.
 
 import logging
 import os
-from flask import Flask, jsonify, render_template
-from flask_cors import CORS
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from psycopg2.pool import SimpleConnectionPool
+from flask import Flask, jsonify, render_template  # type: ignore
+from flask_cors import CORS  # type: ignore
+from psycopg2.extras import RealDictCursor  # type: ignore
+from psycopg2.pool import SimpleConnectionPool  # type: ignore
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -251,7 +250,9 @@ def get_consumer_health():
             result.append(
                 {
                     "consumer_id": row["consumer_id"],
-                    "status": row["calculated_status"],  # Use calculated status instead of raw status
+                    "status": row[
+                        "calculated_status"
+                    ],  # Use calculated status instead of raw status
                     "assigned_partitions": row["assigned_partitions"],
                     "last_heartbeat": row["last_heartbeat"].isoformat(),
                     "total_messages_processed": row["total_messages_processed"],
@@ -295,7 +296,9 @@ def get_producer_health():
                 {
                     "producer_id": row["producer_id"],
                     "sensor_type": row["sensor_type"],
-                    "status": row["calculated_status"],  # Use calculated status instead of raw status
+                    "status": row[
+                        "calculated_status"
+                    ],  # Use calculated status instead of raw status
                     "last_heartbeat": row["last_heartbeat"].isoformat(),
                     "total_messages_sent": row["total_messages_sent"],
                 }

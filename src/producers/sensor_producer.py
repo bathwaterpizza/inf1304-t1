@@ -15,6 +15,7 @@ import time
 from datetime import datetime
 from typing import Dict, Any
 from confluent_kafka import Producer  # type: ignore
+from psycopg2.pool import SimpleConnectionPool  # type: ignore
 
 
 class SensorProducer:
@@ -96,15 +97,15 @@ class SensorProducer:
     def _init_database(self):
         """Initialize PostgreSQL connection for health tracking."""
         try:
-            from psycopg2.pool import SimpleConnectionPool
-            
             # Create connection pool
             self.db_pool = SimpleConnectionPool(
                 minconn=1, maxconn=2, dsn=self.database_url
             )
             self.logger.info("Database connection pool initialized for health tracking")
         except Exception as e:
-            self.logger.warning(f"Failed to initialize database for health tracking: {e}")
+            self.logger.warning(
+                f"Failed to initialize database for health tracking: {e}"
+            )
             self.db_pool = None
 
     def _update_producer_health(self):
@@ -139,11 +140,11 @@ class SensorProducer:
                 (
                     self.sensor_id,
                     self.sensor_type,
-                    'active',
+                    "active",
                     datetime.utcnow(),
                     messages_last_minute,
-                    self.reading_count
-                )
+                    self.reading_count,
+                ),
             )
 
             conn.commit()
@@ -352,7 +353,9 @@ class SensorProducer:
 
                 # Update health status periodically
                 current_time = time.time()
-                if current_time - self.last_heartbeat > 2:  # Update every 2 seconds for real-time monitoring
+                if (
+                    current_time - self.last_heartbeat > 2
+                ):  # Update every 2 seconds for real-time monitoring
                     self._update_producer_health()
                     self.last_heartbeat = current_time
 
