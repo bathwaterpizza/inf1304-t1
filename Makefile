@@ -41,6 +41,11 @@ help:
 	@echo "  monitor-alerts  - Monitor alerts in real-time"
 	@echo "  full-system     - Start complete system (infrastructure + sensors + consumers)"
 	@echo ""
+	@echo "Monitoring & Observability:"
+	@echo "  start-monitoring - Start monitoring dashboard"
+	@echo "  dashboard        - Open monitoring dashboard in browser"
+	@echo "  full-stack       - Start complete system including monitoring dashboard"
+	@echo ""
 
 # Initialize environment and prepare Kafka storage
 setup:
@@ -86,6 +91,18 @@ full-system:
 	@$(MAKE) topics
 	@echo "Complete system with consumers started successfully!"
 	@echo "Kafka UI available at: http://localhost:8080"
+
+# Start complete system including monitoring dashboard
+full-stack:
+	@echo "Starting complete Factory Monitoring System with monitoring dashboard..."
+	@docker compose up -d
+	@echo "Waiting for Kafka brokers to start..."
+	@$(MAKE) wait-for-kafka
+	@echo "Creating Kafka topics..."
+	@$(MAKE) topics
+	@echo "Complete system started successfully!"
+	@echo "Kafka UI available at: http://localhost:8080"
+	@echo "Monitoring Dashboard available at: http://localhost:5000"
 
 # Stop all services
 stop:
@@ -287,6 +304,20 @@ monitor-alerts:
 		--from-beginning \
 		--property print.timestamp=true \
 		--property print.key=true
+
+# Start monitoring service only
+start-monitoring:
+	@echo "Starting monitoring dashboard..."
+	@docker compose up -d monitoring
+	@echo "Monitoring dashboard started successfully!"
+	@echo "Dashboard available at: http://localhost:5000"
+
+# Open monitoring dashboard in browser
+dashboard:
+	@echo "Opening monitoring dashboard..."
+	@which xdg-open > /dev/null 2>&1 && xdg-open http://localhost:5000 || \
+		(which open > /dev/null 2>&1 && open http://localhost:5000) || \
+		echo "Please open http://localhost:5000 in your browser"
 
 # Wait for Kafka brokers to be ready
 wait-for-kafka:

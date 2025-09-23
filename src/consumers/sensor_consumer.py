@@ -52,6 +52,8 @@ class SensorConsumer:
         self.database_url = database_url or os.getenv("DATABASE_URL")
         self.running = False
         self.processed_count = 0
+        self.last_heartbeat = time.time()
+        self.assigned_partitions = []
 
         # Setup logging
         log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -96,6 +98,9 @@ class SensorConsumer:
         self.consumer.subscribe([sensor_topic])
         self.logger.info(f"Subscribed to topic: {sensor_topic}")
 
+        # Setup rebalance callbacks to track partition assignments
+        self.consumer.subscribe([sensor_topic], on_assign=self._on_assign, on_revoke=self._on_revoke)
+
         # Setup database connection
         self.db_pool = None
         if self.database_url:
@@ -108,6 +113,139 @@ class SensorConsumer:
         # Anomaly detection thresholds and patterns
         self.anomaly_patterns = self._load_anomaly_patterns()
         self.recent_readings = {}  # Store recent readings for pattern analysis
+
+    def _on_assign(self, consumer, partitions):
+        """Callback when partitions are assigned to this consumer."""
+        self.assigned_partitions = [p.partition for p in partitions]
+        self.logger.info(f"Partitions assigned: {self.assigned_partitions}")
+        
+        # Record rebalancing event
+        self._record_rebalancing_event('partition_assigned', partitions)
+        
+        # Update consumer health status
+        self._update_consumer_health()
+
+    def _on_revoke(self, consumer, partitions):
+        """Callback when partitions are revoked from this consumer."""
+        revoked_partitions = [p.partition for p in partitions]
+        self.logger.info(f"Partitions revoked: {revoked_partitions}")
+        
+        # Record rebalancing event
+        self._record_rebalancing_event('partition_revoked', partitions)
+
+    def _record_rebalancing_event(self, event_type: str, partitions):
+        """Record rebalancing events in the database."""
+        if not self.db_pool:
+            return
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            for partition in partitions:
+                insert_query = """
+                    INSERT INTO rebalancing_events (
+                        event_type, consumer_id, partition_number, topic_name, timestamp_utc
+                    ) VALUES (%s, %s, %s, %s, %s)
+                """
+                cursor.execute(
+                    insert_query,
+                    (
+                        event_type,
+                        self.consumer_id,
+                        partition.partition,
+                        partition.topic,
+                        datetime.utcnow()
+                    )
+                )
+
+            conn.commit()
+            self.logger.info(f"Recorded {event_type} event for {len(partitions)} partitions")
+
+        except Exception as e:
+            self.logger.error(f"Error recording rebalancing event: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
+
+    def _update_consumer_health(self):
+        """Update consumer health status in database."""
+        if not self.db_pool:
+            return
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            # Calculate messages processed in last minute
+            messages_last_minute = self._get_messages_processed_last_minute()
+
+            # Update or insert consumer health record
+            upsert_query = """
+                INSERT INTO consumer_health (
+                    consumer_id, status, assigned_partitions, last_heartbeat, 
+                    messages_processed_last_minute, total_messages_processed
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (consumer_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    assigned_partitions = EXCLUDED.assigned_partitions,
+                    last_heartbeat = EXCLUDED.last_heartbeat,
+                    messages_processed_last_minute = EXCLUDED.messages_processed_last_minute,
+                    total_messages_processed = EXCLUDED.total_messages_processed,
+                    updated_at = CURRENT_TIMESTAMP
+            """
+
+            cursor.execute(
+                upsert_query,
+                (
+                    self.consumer_id,
+                    'active',
+                    json.dumps(self.assigned_partitions),
+                    datetime.utcnow(),
+                    messages_last_minute,
+                    self.processed_count
+                )
+            )
+
+            conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"Error updating consumer health: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
+
+    def _get_messages_processed_last_minute(self) -> int:
+        """Get count of messages processed in the last minute."""
+        if not self.db_pool:
+            return 0
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            query = """
+                SELECT COUNT(*) FROM sensor_readings 
+                WHERE processed_by_consumer = %s 
+                AND processing_timestamp >= NOW() - INTERVAL '1 minute'
+            """
+            cursor.execute(query, (self.consumer_id,))
+            result = cursor.fetchone()
+            return result[0] if result else 0
+
+        except Exception as e:
+            self.logger.error(f"Error getting messages processed: {e}")
+            return 0
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
@@ -204,8 +342,8 @@ class SensorConsumer:
             },
         }
 
-    def _store_sensor_reading(self, sensor_data: Dict[str, Any]) -> bool:
-        """Store sensor reading in the database."""
+    def _store_sensor_reading(self, sensor_data: Dict[str, Any], kafka_msg=None) -> bool:
+        """Store sensor reading in the database with processing metadata."""
         if not self.db_pool:
             return False
 
@@ -217,13 +355,18 @@ class SensorConsumer:
             # Ensure sensor exists
             self._ensure_sensor_exists(cursor, sensor_data)
 
-            # Insert sensor reading
+            # Insert sensor reading with processing metadata
             insert_query = """
                 INSERT INTO sensor_readings (
                     sensor_id, timestamp_utc, sensor_type, reading_value, 
-                    unit, alert_level, quality, location, metadata
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    unit, alert_level, quality, location, metadata,
+                    processed_by_consumer, kafka_partition, kafka_offset, processing_timestamp
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
+
+            # Extract Kafka metadata if available
+            partition = kafka_msg.partition() if kafka_msg else None
+            offset = kafka_msg.offset() if kafka_msg else None
 
             cursor.execute(
                 insert_query,
@@ -237,6 +380,10 @@ class SensorConsumer:
                     sensor_data.get("quality", 1.0),
                     json.dumps(sensor_data.get("location", {})),
                     json.dumps(sensor_data.get("metadata", {})),
+                    self.consumer_id,  # processed_by_consumer
+                    partition,  # kafka_partition
+                    offset,  # kafka_offset
+                    datetime.utcnow(),  # processing_timestamp
                 ),
             )
 
@@ -328,13 +475,14 @@ class SensorConsumer:
             self.logger.error(f"Error ensuring sensor exists: {e}")
 
     def process_sensor_data(
-        self, sensor_data: Dict[str, Any]
+        self, sensor_data: Dict[str, Any], kafka_msg=None
     ) -> Optional[Dict[str, Any]]:
         """
         Process sensor data and detect anomalies.
 
         Args:
             sensor_data: Parsed sensor reading
+            kafka_msg: Kafka message object for metadata
 
         Returns:
             Alert data if anomaly detected, None otherwise
@@ -356,8 +504,8 @@ class SensorConsumer:
         # Keep only recent readings (last 10 readings)
         self.recent_readings[sensor_id] = self.recent_readings[sensor_id][-10:]
 
-        # Store sensor reading in database
-        self._store_sensor_reading(sensor_data)
+        # Store sensor reading in database with processing metadata
+        self._store_sensor_reading(sensor_data, kafka_msg)
 
         # Detect anomalies based on patterns
         anomaly_type = self._detect_anomaly(sensor_id, sensor_type, sensor_data)
@@ -373,9 +521,10 @@ class SensorConsumer:
             return alert
 
         # Log normal processing
+        partition_info = f" [partition {kafka_msg.partition()}]" if kafka_msg else ""
         self.logger.info(
             f"Processed {sensor_type} reading from {sensor_id}: "
-            f"{value}{sensor_data.get('unit', '')} (Alert: {current_alert_level})"
+            f"{value}{sensor_data.get('unit', '')} (Alert: {current_alert_level}){partition_info}"
         )
         return None
 
@@ -546,12 +695,20 @@ class SensorConsumer:
             f"(group: {self.consumer_group}, topic: {self.sensor_topic})"
         )
 
+        # Initial health update
+        self._update_consumer_health()
+
         try:
             while self.running:
                 # Poll for messages
                 msg = self.consumer.poll(timeout=1.0)
 
                 if msg is None:
+                    # Update heartbeat periodically even when no messages
+                    current_time = time.time()
+                    if current_time - self.last_heartbeat > 30:  # Update every 30 seconds
+                        self._update_consumer_health()
+                        self.last_heartbeat = current_time
                     continue
 
                 if msg.error():
@@ -566,14 +723,20 @@ class SensorConsumer:
                     # Parse sensor data
                     sensor_data = json.loads(msg.value().decode("utf-8"))
 
-                    # Process sensor data and detect anomalies
-                    alert = self.process_sensor_data(sensor_data)
+                    # Process sensor data and detect anomalies (pass Kafka message for metadata)
+                    alert = self.process_sensor_data(sensor_data, msg)
 
                     # Publish alert if anomaly detected
                     if alert:
                         self.publish_alert(alert)
 
                     self.processed_count += 1
+
+                    # Update health status periodically
+                    current_time = time.time()
+                    if current_time - self.last_heartbeat > 30:  # Update every 30 seconds
+                        self._update_consumer_health()
+                        self.last_heartbeat = current_time
 
                     # Log processing stats periodically
                     if self.processed_count % 100 == 0:

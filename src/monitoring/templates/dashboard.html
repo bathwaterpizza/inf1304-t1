@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factory Monitoring Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #444;
+        }
+        
+        .card h3 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4fc3f7;
+            padding-bottom: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active { background-color: #4caf50; }
+        .status-inactive { background-color: #f44336; }
+        .status-warning { background-color: #ff9800; }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #444;
+        }
+        
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .chart-container {
+            height: 300px;
+            background-color: #333;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+        }
+        
+        .alert-item {
+            background-color: #333;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #f44336;
+        }
+        
+        .alert-critical { border-left-color: #f44336; }
+        .alert-high { border-left-color: #ff5722; }
+        .alert-medium { border-left-color: #ff9800; }
+        .alert-low { border-left-color: #2196f3; }
+        
+        .consumer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .consumer-card {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .partition-assignment {
+            background-color: #444;
+            padding: 5px;
+            border-radius: 3px;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .timestamp {
+            color: #888;
+            font-size: 12px;
+        }
+        
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #4fc3f7;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .refresh-indicator.active {
+            opacity: 1;
+        }
+        
+        .error-message {
+            background-color: #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏭 Factory Monitoring Dashboard</h1>
+        <p>Real-time monitoring of distributed sensor system</p>
+    </div>
+    
+    <div class="refresh-indicator" id="refreshIndicator">Updating...</div>
+    
+    <div id="errorContainer"></div>
+    
+    <div class="dashboard-grid">
+        <!-- System Status Card -->
+        <div class="card">
+            <h3>📊 System Status</h3>
+            <div id="systemStatus">
+                <div class="metric-row">
+                    <span>Loading system status...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Consumer Health Card -->
+        <div class="card">
+            <h3>🔄 Consumer Health</h3>
+            <div id="consumerHealth" class="consumer-grid">
+                <div>Loading consumer data...</div>
+            </div>
+        </div>
+        
+        <!-- Producer Health Card -->
+        <div class="card">
+            <h3>📡 Producer Health</h3>
+            <div id="producerHealth">
+                <div class="metric-row">
+                    <span>Loading producer data...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Partition Assignment Card -->
+        <div class="card">
+            <h3>🔀 Partition Assignment</h3>
+            <div id="partitionAssignment">
+                <div>Loading partition data...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="dashboard-grid">
+        <!-- Throughput Metrics Card -->
+        <div class="card">
+            <h3>📈 Throughput Metrics</h3>
+            <div id="throughputMetrics">
+                <div class="chart-container">
+                    Real-time throughput chart will be displayed here
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Alerts Card -->
+        <div class="card">
+            <h3>⚠️ Recent Alerts</h3>
+            <div id="recentAlerts">
+                <div>Loading alert data...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="dashboard-grid">
+        <!-- Rebalancing Events Card -->
+        <div class="card">
+            <h3>🔄 Rebalancing Events</h3>
+            <div id="rebalancingEvents">
+                <div>Loading rebalancing data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let updateInterval;
+        const REFRESH_RATE = 5000; // 5 seconds to match sensor interval
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Factory Monitoring Dashboard initialized');
+            startAutoRefresh();
+            fetchAllData();
+        });
+        
+        function startAutoRefresh() {
+            updateInterval = setInterval(fetchAllData, REFRESH_RATE);
+        }
+        
+        function showRefreshIndicator() {
+            const indicator = document.getElementById('refreshIndicator');
+            indicator.classList.add('active');
+            setTimeout(() => indicator.classList.remove('active'), 1000);
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="error-message">Error: ${message}</div>`;
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+        
+        async function fetchAllData() {
+            showRefreshIndicator();
+            
+            try {
+                await Promise.all([
+                    fetchSystemStatus(),
+                    fetchConsumerHealth(),
+                    fetchProducerHealth(),
+                    fetchPartitionAssignment(),
+                    fetchThroughputMetrics(),
+                    fetchRecentAlerts()
+                ]);
+                
+                // Clear any previous errors
+                document.getElementById('errorContainer').innerHTML = '';
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError('Failed to fetch monitoring data');
+            }
+        }
+        
+        async function fetchSystemStatus() {
+            try {
+                const response = await fetch('/api/system-status');
+                const data = await response.json();
+                
+                let html = '';
+                if (data.status) {
+                    for (const [componentType, info] of Object.entries(data.status)) {
+                        const statusClass = info.active_count > 0 ? 'status-active' : 'status-inactive';
+                        html += `
+                            <div class="metric-row">
+                                <span>
+                                    <span class="status-indicator ${statusClass}"></span>
+                                    ${componentType.toUpperCase()}
+                                </span>
+                                <span class="metric-value">${info.active_count}/${info.total_count}</span>
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Add rebalancing events
+                if (data.rebalancing_events && data.rebalancing_events.length > 0) {
+                    document.getElementById('rebalancingEvents').innerHTML = 
+                        data.rebalancing_events.map(event => `
+                            <div class="alert-item">
+                                <strong>${event.event_type}</strong> - ${event.consumer_id}
+                                ${event.partition_number !== null ? ` (Partition ${event.partition_number})` : ''}
+                                <div class="timestamp">${new Date(event.timestamp).toLocaleTimeString()}</div>
+                            </div>
+                        `).join('');
+                } else {
+                    document.getElementById('rebalancingEvents').innerHTML = 
+                        '<div class="metric-row"><span>No recent rebalancing events</span></div>';
+                }
+                
+                document.getElementById('systemStatus').innerHTML = html || '<div class="metric-row"><span>No data available</span></div>';
+            } catch (error) {
+                console.error('Error fetching system status:', error);
+            }
+        }
+        
+        async function fetchConsumerHealth() {
+            try {
+                const response = await fetch('/api/consumer-health');
+                const data = await response.json();
+                
+                const html = data.map(consumer => {
+                    const statusClass = consumer.status === 'active' ? 'status-active' : 'status-inactive';
+                    const partitions = consumer.assigned_partitions || [];
+                    
+                    return `
+                        <div class="consumer-card">
+                            <div>
+                                <span class="status-indicator ${statusClass}"></span>
+                                <strong>${consumer.consumer_id}</strong>
+                            </div>
+                            <div class="partition-assignment">
+                                Partitions: [${partitions.join(', ')}]
+                            </div>
+                            <div class="metric-value">${consumer.messages_processed_last_minute}/min</div>
+                            <div class="timestamp">
+                                ${new Date(consumer.last_heartbeat).toLocaleTimeString()}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('consumerHealth').innerHTML = html || '<div>No consumer data available</div>';
+            } catch (error) {
+                console.error('Error fetching consumer health:', error);
+            }
+        }
+        
+        async function fetchProducerHealth() {
+            try {
+                const response = await fetch('/api/producer-health');
+                const data = await response.json();
+                
+                const html = data.map(producer => {
+                    const statusClass = producer.status === 'active' ? 'status-active' : 'status-inactive';
+                    
+                    return `
+                        <div class="metric-row">
+                            <span>
+                                <span class="status-indicator ${statusClass}"></span>
+                                ${producer.producer_id} (${producer.sensor_type})
+                            </span>
+                            <span class="metric-value">${producer.messages_sent_last_minute}/min</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('producerHealth').innerHTML = html || '<div class="metric-row"><span>No producer data available</span></div>';
+            } catch (error) {
+                console.error('Error fetching producer health:', error);
+            }
+        }
+        
+        async function fetchPartitionAssignment() {
+            try {
+                const response = await fetch('/api/partition-assignment');
+                const data = await response.json();
+                
+                let html = '<h4>Current Assignments:</h4>';
+                
+                const assignments = data.assignments || [];
+                assignments.forEach(assignment => {
+                    const statusClass = assignment.status === 'active' ? 'status-active' : 'status-inactive';
+                    const partitions = assignment.assigned_partitions || [];
+                    
+                    html += `
+                        <div class="metric-row">
+                            <span>
+                                <span class="status-indicator ${statusClass}"></span>
+                                ${assignment.consumer_id}
+                            </span>
+                            <span class="metric-value">[${partitions.join(', ')}]</span>
+                        </div>
+                    `;
+                });
+                
+                html += '<h4>Partition Activity (5min):</h4>';
+                const partitionActivity = data.partition_activity || {};
+                if (Object.keys(partitionActivity).length > 0) {
+                    Object.entries(partitionActivity).forEach(([partition, count]) => {
+                        html += `
+                            <div class="metric-row">
+                                <span>Partition ${partition}</span>
+                                <span class="metric-value">${count} messages</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div class="metric-row"><span>No partition activity</span></div>';
+                }
+                
+                document.getElementById('partitionAssignment').innerHTML = html;
+            } catch (error) {
+                console.error('Error fetching partition assignment:', error);
+            }
+        }
+        
+        async function fetchThroughputMetrics() {
+            try {
+                const response = await fetch('/api/real-time-metrics');
+                const data = await response.json();
+                
+                let html = '<h4>Last 10 Minutes:</h4>';
+                
+                // Consumer throughput
+                html += '<div><strong>Consumer Throughput:</strong></div>';
+                const consumerMetrics = data.consumer_throughput || [];
+                
+                if (consumerMetrics.length > 0) {
+                    consumerMetrics.forEach(metric => {
+                        html += `
+                            <div class="metric-row">
+                                <span>${metric.component_id}</span>
+                                <span class="metric-value">${metric.value} msgs</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div class="metric-row"><span>No consumer activity</span></div>';
+                }
+                
+                // Producer throughput
+                html += '<div style="margin-top: 15px;"><strong>Producer Throughput:</strong></div>';
+                const producerMetrics = data.producer_throughput || [];
+                
+                if (producerMetrics.length > 0) {
+                    producerMetrics.forEach(metric => {
+                        html += `
+                            <div class="metric-row">
+                                <span>${metric.component_id}</span>
+                                <span class="metric-value">${metric.value}/min</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div class="metric-row"><span>No producer activity</span></div>';
+                }
+                
+                document.getElementById('throughputMetrics').innerHTML = html;
+            } catch (error) {
+                console.error('Error fetching throughput metrics:', error);
+            }
+        }
+        
+        async function fetchRecentAlerts() {
+            try {
+                const response = await fetch('/api/recent-alerts');
+                const data = await response.json();
+                
+                const html = data.slice(0, 10).map(alert => `
+                    <div class="alert-item alert-${alert.severity}">
+                        <strong>${alert.anomaly_type}</strong> - ${alert.sensor_id}
+                        <div>${alert.description}</div>
+                        <div class="timestamp">
+                            ${new Date(alert.timestamp).toLocaleString()} | 
+                            Detected by: ${alert.detected_by}
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('recentAlerts').innerHTML = html || '<div>No recent alerts</div>';
+            } catch (error) {
+                console.error('Error fetching recent alerts:', error);
+            }
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        });
+    </script>
+</body>
+</html>

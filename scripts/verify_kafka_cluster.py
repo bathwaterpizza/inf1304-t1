@@ -10,8 +10,8 @@ import json
 import sys
 import time
 from typing import List
-from confluent_kafka.admin import AdminClient
-from confluent_kafka import Producer, Consumer
+from confluent_kafka.admin import AdminClient  # type: ignore
+from confluent_kafka import Producer, Consumer  # type: ignore
 
 
 def create_admin_client(bootstrap_servers: str) -> AdminClient:

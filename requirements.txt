@@ -5,5 +5,9 @@ confluent-kafka==2.3.0
 # Database support
 psycopg2-binary==2.9.7
 
+# Web framework for monitoring dashboard
+flask==3.0.0
+flask-cors==4.0.0
+
 # Additional utilities (if needed for env file support)
 python-dotenv==1.0.0

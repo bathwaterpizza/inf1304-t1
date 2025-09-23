@@ -5,7 +5,7 @@ Simple Kafka Topic Inspector
 Quick script to inspect topic configurations and partition assignments.
 """
 
-from confluent_kafka.admin import AdminClient
+from confluent_kafka.admin import AdminClient  # type: ignore
 
 
 def inspect_topics():

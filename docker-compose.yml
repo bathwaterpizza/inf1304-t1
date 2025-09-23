@@ -159,6 +159,8 @@ services:
         condition: service_healthy
       kafka3:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       SENSOR_ID: temp-sensor-001
       SENSOR_TYPE: temperature
@@ -171,6 +173,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       TEMPERATURE_WARNING_THRESHOLD: ${TEMPERATURE_WARNING_THRESHOLD}
       TEMPERATURE_CRITICAL_THRESHOLD: ${TEMPERATURE_CRITICAL_THRESHOLD}
+      DATABASE_URL: ${DATABASE_URL}
     networks:
       - factory_network
     restart: unless-stopped
@@ -188,6 +191,8 @@ services:
         condition: service_healthy
       kafka3:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       SENSOR_ID: vib-sensor-002
       SENSOR_TYPE: vibration
@@ -200,6 +205,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       VIBRATION_WARNING_THRESHOLD: ${VIBRATION_WARNING_THRESHOLD}
       VIBRATION_CRITICAL_THRESHOLD: ${VIBRATION_CRITICAL_THRESHOLD}
+      DATABASE_URL: ${DATABASE_URL}
     networks:
       - factory_network
     restart: unless-stopped
@@ -217,6 +223,8 @@ services:
         condition: service_healthy
       kafka3:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       SENSOR_ID: energy-sensor-003
       SENSOR_TYPE: energy
@@ -228,6 +236,7 @@ services:
       ZONE: zone-c
       LOG_LEVEL: ${LOG_LEVEL}
       ENERGY_ANOMALY_THRESHOLD: ${ENERGY_ANOMALY_THRESHOLD}
+      DATABASE_URL: ${DATABASE_URL}
     networks:
       - factory_network
     restart: unless-stopped
@@ -330,6 +339,24 @@ services:
       VIBRATION_WARNING_THRESHOLD: ${VIBRATION_WARNING_THRESHOLD}
       VIBRATION_CRITICAL_THRESHOLD: ${VIBRATION_CRITICAL_THRESHOLD}
       ENERGY_ANOMALY_THRESHOLD: ${ENERGY_ANOMALY_THRESHOLD}
+    networks:
+      - factory_network
+    restart: unless-stopped
+
+  # Monitoring Service
+  monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitoring
+    container_name: monitoring
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      FLASK_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - factory_network
     restart: unless-stopped

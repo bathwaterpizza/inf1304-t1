@@ -80,11 +80,86 @@ class SensorProducer:
         # Sensor configuration based on type
         self.sensor_config = self._get_sensor_config(sensor_type)
         self.reading_count = 0
+        self.last_heartbeat = time.time()
+
+        # Database connection for health tracking (optional)
+        self.database_url = os.getenv("DATABASE_URL")
+        self.db_pool = None
+        if self.database_url:
+            self._init_database()
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
         self.logger.info(f"Received signal {signum}, shutting down...")
         self.stop()
+
+    def _init_database(self):
+        """Initialize PostgreSQL connection for health tracking."""
+        try:
+            from psycopg2.pool import SimpleConnectionPool
+            
+            # Create connection pool
+            self.db_pool = SimpleConnectionPool(
+                minconn=1, maxconn=2, dsn=self.database_url
+            )
+            self.logger.info("Database connection pool initialized for health tracking")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize database for health tracking: {e}")
+            self.db_pool = None
+
+    def _update_producer_health(self):
+        """Update producer health status in database."""
+        if not self.db_pool:
+            return
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            # Calculate messages sent in last minute
+            messages_last_minute = self._get_messages_sent_last_minute()
+
+            # Update or insert producer health record
+            upsert_query = """
+                INSERT INTO producer_health (
+                    producer_id, sensor_type, status, last_heartbeat, 
+                    messages_sent_last_minute, total_messages_sent
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (producer_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    last_heartbeat = EXCLUDED.last_heartbeat,
+                    messages_sent_last_minute = EXCLUDED.messages_sent_last_minute,
+                    total_messages_sent = EXCLUDED.total_messages_sent,
+                    updated_at = CURRENT_TIMESTAMP
+            """
+
+            cursor.execute(
+                upsert_query,
+                (
+                    self.sensor_id,
+                    self.sensor_type,
+                    'active',
+                    datetime.utcnow(),
+                    messages_last_minute,
+                    self.reading_count
+                )
+            )
+
+            conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"Error updating producer health: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
+
+    def _get_messages_sent_last_minute(self) -> int:
+        """Estimate messages sent in the last minute based on interval."""
+        # Simple estimation: 60 seconds / interval
+        return max(1, int(60 / self.interval))
 
     def _get_sensor_config(self, sensor_type: str) -> Dict[str, Any]:
         """Get configuration for specific sensor type with environment overrides."""
@@ -264,6 +339,9 @@ class SensorProducer:
             f"(interval: {self.interval}s, topic: {self.topic})"
         )
 
+        # Initial health update
+        self._update_producer_health()
+
         try:
             while self.running:
                 start_time = time.time()
@@ -271,6 +349,12 @@ class SensorProducer:
                 # Generate and publish reading
                 reading = self.create_sensor_reading()
                 self.publish_reading(reading)
+
+                # Update health status periodically
+                current_time = time.time()
+                if current_time - self.last_heartbeat > 30:  # Update every 30 seconds
+                    self._update_producer_health()
+                    self.last_heartbeat = current_time
 
                 # Sleep for the remaining interval time
                 elapsed = time.time() - start_time
@@ -292,11 +376,19 @@ class SensorProducer:
     def cleanup(self):
         """Clean up resources."""
         try:
+            # Mark producer as inactive in database
+            if self.db_pool:
+                self._mark_producer_inactive()
+
             if self.producer:
                 self.logger.info("Flushing remaining messages...")
                 remaining = self.producer.flush(timeout=10)
                 if remaining > 0:
                     self.logger.warning(f"{remaining} messages not delivered")
+
+            if self.db_pool:
+                self.logger.info("Closing database connection pool...")
+                self.db_pool.closeall()
 
             self.logger.info(
                 f"Sensor {self.sensor_id} stopped. Total readings: {self.reading_count}"
@@ -304,6 +396,32 @@ class SensorProducer:
 
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
+
+    def _mark_producer_inactive(self):
+        """Mark producer as inactive in database."""
+        if not self.db_pool:
+            return
+
+        conn = None
+        try:
+            conn = self.db_pool.getconn()
+            cursor = conn.cursor()
+
+            update_query = """
+                UPDATE producer_health 
+                SET status = 'inactive', updated_at = CURRENT_TIMESTAMP
+                WHERE producer_id = %s
+            """
+            cursor.execute(update_query, (self.sensor_id,))
+            conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"Error marking producer inactive: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                self.db_pool.putconn(conn)
 
 
 async def main():

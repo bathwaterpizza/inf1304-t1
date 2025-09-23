@@ -28,6 +28,11 @@ CREATE TABLE sensor_readings (
     quality DECIMAL(3,2) DEFAULT 1.0,
     location JSONB NOT NULL,
     metadata JSONB,
+    -- Processing tracking fields
+    processed_by_consumer VARCHAR(50), -- Which consumer processed this message
+    kafka_partition INTEGER, -- Which Kafka partition this came from
+    kafka_offset BIGINT, -- Kafka message offset
+    processing_timestamp TIMESTAMP WITH TIME ZONE, -- When consumer processed this
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sensor_id) REFERENCES sensors(sensor_id) ON DELETE CASCADE
 );
@@ -65,11 +70,54 @@ CREATE TABLE system_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Consumer health tracking table
+CREATE TABLE consumer_health (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    consumer_id VARCHAR(50) UNIQUE NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('active', 'inactive', 'error')),
+    assigned_partitions JSONB, -- Array of partition numbers assigned to this consumer
+    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
+    messages_processed_last_minute INTEGER DEFAULT 0,
+    total_messages_processed BIGINT DEFAULT 0,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Producer health tracking table
+CREATE TABLE producer_health (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    producer_id VARCHAR(50) UNIQUE NOT NULL, -- sensor_id acts as producer_id
+    sensor_type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('active', 'inactive', 'error')),
+    last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
+    messages_sent_last_minute INTEGER DEFAULT 0,
+    total_messages_sent BIGINT DEFAULT 0,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Rebalancing events tracking table
+CREATE TABLE rebalancing_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('rebalance_start', 'rebalance_complete', 'partition_assigned', 'partition_revoked')),
+    consumer_id VARCHAR(50) NOT NULL,
+    partition_number INTEGER,
+    topic_name VARCHAR(100) NOT NULL,
+    timestamp_utc TIMESTAMP WITH TIME ZONE NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance optimization
 CREATE INDEX idx_sensor_readings_sensor_id ON sensor_readings(sensor_id);
 CREATE INDEX idx_sensor_readings_timestamp ON sensor_readings(timestamp_utc);
 CREATE INDEX idx_sensor_readings_sensor_type ON sensor_readings(sensor_type);
 CREATE INDEX idx_sensor_readings_alert_level ON sensor_readings(alert_level);
+CREATE INDEX idx_sensor_readings_processed_by ON sensor_readings(processed_by_consumer);
+CREATE INDEX idx_sensor_readings_partition ON sensor_readings(kafka_partition);
+CREATE INDEX idx_sensor_readings_processing_time ON sensor_readings(processing_timestamp);
 CREATE INDEX idx_alerts_sensor_id ON alerts(sensor_id);
 CREATE INDEX idx_alerts_timestamp ON alerts(timestamp_utc);
 CREATE INDEX idx_alerts_status ON alerts(status);
@@ -77,6 +125,15 @@ CREATE INDEX idx_alerts_severity ON alerts(severity);
 CREATE INDEX idx_alerts_anomaly_type ON alerts(anomaly_type);
 CREATE INDEX idx_system_events_timestamp ON system_events(timestamp_utc);
 CREATE INDEX idx_system_events_component ON system_events(component);
+CREATE INDEX idx_consumer_health_consumer_id ON consumer_health(consumer_id);
+CREATE INDEX idx_consumer_health_status ON consumer_health(status);
+CREATE INDEX idx_consumer_health_heartbeat ON consumer_health(last_heartbeat);
+CREATE INDEX idx_producer_health_producer_id ON producer_health(producer_id);
+CREATE INDEX idx_producer_health_status ON producer_health(status);
+CREATE INDEX idx_producer_health_heartbeat ON producer_health(last_heartbeat);
+CREATE INDEX idx_rebalancing_events_timestamp ON rebalancing_events(timestamp_utc);
+CREATE INDEX idx_rebalancing_events_consumer ON rebalancing_events(consumer_id);
+CREATE INDEX idx_rebalancing_events_type ON rebalancing_events(event_type);
 
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -90,6 +147,16 @@ $$ language 'plpgsql';
 -- Trigger to automatically update updated_at column
 CREATE TRIGGER update_sensors_updated_at 
     BEFORE UPDATE ON sensors 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_consumer_health_updated_at 
+    BEFORE UPDATE ON consumer_health 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_producer_health_updated_at 
+    BEFORE UPDATE ON producer_health 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
@@ -151,8 +218,71 @@ SELECT
     sr.quality,
     sr.location,
     sr.metadata,
+    sr.processed_by_consumer,
+    sr.kafka_partition,
+    sr.kafka_offset,
+    sr.processing_timestamp,
     sr.created_at
 FROM sensor_readings sr
 JOIN sensors s ON sr.sensor_id = s.sensor_id
 WHERE sr.timestamp_utc >= NOW() - INTERVAL '1 hour'
 ORDER BY sr.timestamp_utc DESC;
+
+-- Real-time metrics view for monitoring dashboard
+CREATE VIEW real_time_metrics AS
+SELECT 
+    'consumer_throughput' as metric_type,
+    processed_by_consumer as component_id,
+    COUNT(*) as value,
+    DATE_TRUNC('minute', processing_timestamp) as time_bucket
+FROM sensor_readings 
+WHERE processing_timestamp >= NOW() - INTERVAL '10 minutes'
+AND processed_by_consumer IS NOT NULL
+GROUP BY processed_by_consumer, DATE_TRUNC('minute', processing_timestamp)
+
+UNION ALL
+
+SELECT 
+    'producer_throughput' as metric_type,
+    sensor_id as component_id,
+    COUNT(*) as value,
+    DATE_TRUNC('minute', timestamp_utc) as time_bucket
+FROM sensor_readings 
+WHERE timestamp_utc >= NOW() - INTERVAL '10 minutes'
+GROUP BY sensor_id, DATE_TRUNC('minute', timestamp_utc)
+
+UNION ALL
+
+SELECT 
+    'partition_distribution' as metric_type,
+    CONCAT('partition-', kafka_partition::text) as component_id,
+    COUNT(*) as value,
+    DATE_TRUNC('minute', processing_timestamp) as time_bucket
+FROM sensor_readings 
+WHERE processing_timestamp >= NOW() - INTERVAL '10 minutes'
+AND kafka_partition IS NOT NULL
+GROUP BY kafka_partition, DATE_TRUNC('minute', processing_timestamp)
+
+ORDER BY time_bucket DESC, metric_type, component_id;
+
+-- Current system status view
+CREATE VIEW system_status AS
+SELECT 
+    'consumers' as component_type,
+    COUNT(CASE WHEN status = 'active' THEN 1 END) as active_count,
+    COUNT(CASE WHEN status = 'inactive' THEN 1 END) as inactive_count,
+    COUNT(*) as total_count,
+    MAX(last_heartbeat) as last_activity
+FROM consumer_health
+WHERE last_heartbeat >= NOW() - INTERVAL '2 minutes'
+
+UNION ALL
+
+SELECT 
+    'producers' as component_type,
+    COUNT(CASE WHEN status = 'active' THEN 1 END) as active_count,
+    COUNT(CASE WHEN status = 'inactive' THEN 1 END) as inactive_count,
+    COUNT(*) as total_count,
+    MAX(last_heartbeat) as last_activity
+FROM producer_health
+WHERE last_heartbeat >= NOW() - INTERVAL '2 minutes';
