@@ -87,7 +87,7 @@ def get_system_status():
         cursor.execute("""
             SELECT 
                 COUNT(*) as total_count,
-                COUNT(*) FILTER (WHERE status = 'active' AND last_heartbeat > NOW() - INTERVAL '2 minutes') as active_count,
+                COUNT(*) FILTER (WHERE status = 'active' AND last_heartbeat > NOW() - INTERVAL '5 seconds') as active_count,
                 MAX(last_heartbeat) as last_activity
             FROM consumer_health
         """)
@@ -97,7 +97,7 @@ def get_system_status():
         cursor.execute("""
             SELECT 
                 COUNT(*) as total_count,
-                COUNT(*) FILTER (WHERE status = 'active' AND last_heartbeat > NOW() - INTERVAL '2 minutes') as active_count,
+                COUNT(*) FILTER (WHERE status = 'active' AND last_heartbeat > NOW() - INTERVAL '5 seconds') as active_count,
                 MAX(last_heartbeat) as last_activity
             FROM producer_health
         """)
@@ -175,13 +175,13 @@ def get_real_time_metrics():
         """)
         consumer_throughput = cursor.fetchall()
 
-        # Get producer throughput (last 10 minutes)
+        # Get producer total messages (for active producers)
         cursor.execute("""
             SELECT 
                 ph.producer_id as component_id,
-                ph.messages_sent_last_minute as value
+                ph.total_messages_sent as value
             FROM producer_health ph
-            WHERE ph.last_heartbeat >= NOW() - INTERVAL '10 minutes'
+            WHERE ph.status = 'active' AND ph.last_heartbeat >= NOW() - INTERVAL '5 seconds'
             ORDER BY component_id
         """)
         producer_throughput = cursor.fetchall()
@@ -236,7 +236,11 @@ def get_consumer_health():
 
         cursor.execute("""
             SELECT consumer_id, status, assigned_partitions, last_heartbeat,
-                   messages_processed_last_minute, total_messages_processed
+                   total_messages_processed,
+                   CASE 
+                       WHEN status = 'active' AND last_heartbeat > NOW() - INTERVAL '5 seconds' THEN 'active'
+                       ELSE 'inactive'
+                   END as calculated_status
             FROM consumer_health 
             ORDER BY consumer_id
         """)
@@ -247,12 +251,9 @@ def get_consumer_health():
             result.append(
                 {
                     "consumer_id": row["consumer_id"],
-                    "status": row["status"],
+                    "status": row["calculated_status"],  # Use calculated status instead of raw status
                     "assigned_partitions": row["assigned_partitions"],
                     "last_heartbeat": row["last_heartbeat"].isoformat(),
-                    "messages_processed_last_minute": row[
-                        "messages_processed_last_minute"
-                    ],
                     "total_messages_processed": row["total_messages_processed"],
                 }
             )
@@ -278,7 +279,11 @@ def get_producer_health():
 
         cursor.execute("""
             SELECT producer_id, sensor_type, status, last_heartbeat,
-                   messages_sent_last_minute, total_messages_sent
+                   total_messages_sent,
+                   CASE 
+                       WHEN status = 'active' AND last_heartbeat > NOW() - INTERVAL '5 seconds' THEN 'active'
+                       ELSE 'inactive'
+                   END as calculated_status
             FROM producer_health 
             ORDER BY producer_id
         """)
@@ -290,9 +295,8 @@ def get_producer_health():
                 {
                     "producer_id": row["producer_id"],
                     "sensor_type": row["sensor_type"],
-                    "status": row["status"],
+                    "status": row["calculated_status"],  # Use calculated status instead of raw status
                     "last_heartbeat": row["last_heartbeat"].isoformat(),
-                    "messages_sent_last_minute": row["messages_sent_last_minute"],
                     "total_messages_sent": row["total_messages_sent"],
                 }
             )

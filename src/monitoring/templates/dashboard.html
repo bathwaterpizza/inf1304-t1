@@ -343,7 +343,7 @@
                             <div class="partition-assignment">
                                 Partitions: [${partitions.join(', ')}]
                             </div>
-                            <div class="metric-value">${consumer.messages_processed_last_minute}/min</div>
+                            <div class="metric-value">${consumer.total_messages_processed} total</div>
                             <div class="timestamp">
                                 ${new Date(consumer.last_heartbeat).toLocaleTimeString()}
                             </div>
@@ -371,7 +371,7 @@
                                 <span class="status-indicator ${statusClass}"></span>
                                 ${producer.producer_id} (${producer.sensor_type})
                             </span>
-                            <span class="metric-value">${producer.messages_sent_last_minute}/min</span>
+                            <span class="metric-value">${producer.total_messages_sent} total</span>
                         </div>
                     `;
                 }).join('');
@@ -459,7 +459,7 @@
                         html += `
                             <div class="metric-row">
                                 <span>${metric.component_id}</span>
-                                <span class="metric-value">${metric.value}/min</span>
+                                <span class="metric-value">${metric.value} total</span>
                             </div>
                         `;
                     });

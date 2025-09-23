@@ -706,7 +706,7 @@ class SensorConsumer:
                 if msg is None:
                     # Update heartbeat periodically even when no messages
                     current_time = time.time()
-                    if current_time - self.last_heartbeat > 30:  # Update every 30 seconds
+                    if current_time - self.last_heartbeat > 2:  # Update every 2 seconds for real-time monitoring
                         self._update_consumer_health()
                         self.last_heartbeat = current_time
                     continue
@@ -734,7 +734,7 @@ class SensorConsumer:
 
                     # Update health status periodically
                     current_time = time.time()
-                    if current_time - self.last_heartbeat > 30:  # Update every 30 seconds
+                    if current_time - self.last_heartbeat > 2:  # Update every 2 seconds for real-time monitoring
                         self._update_consumer_health()
                         self.last_heartbeat = current_time
 
