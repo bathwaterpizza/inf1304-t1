@@ -12,9 +12,6 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Add Flask and monitoring dependencies
-RUN pip install --no-cache-dir flask flask-cors
-
 # Copy monitoring service source
 COPY src/monitoring/ ./src/monitoring/
 

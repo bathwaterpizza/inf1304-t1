@@ -1,7 +1,9 @@
-# Relatório Técnico: Sistema Distribuído de Monitoramento de Fábrica
+# Relatório: Sistema Distribuído de Monitoramento de Fábrica
 
 **Disciplina:** INF1304 - Sistemas Distribuídos  
 **Período:** 2025.2  
+**Nome:** Miguel Brandt
+**Matrícula:** 2311799
 **Data de Entrega:** 02 de Outubro de 2025
 
 ---
@@ -331,34 +333,33 @@ O sistema implementa múltiplas estratégias para lidar com falhas:
 
 ---
 
-## 4. Testes e Validação
+## 4. Simulações de falha
 
 ### 4.1 Cenários de Teste
 
-#### 4.1.1 Teste de Funcionalidade Básica
+#### 4.1.1 Consumers falharam
 
-**Objetivo**: Verificar operação normal do sistema
+Ao derrubar dois dos três containers de consumidores, podemos observar através da interface de monitoramento que o sistema continua funcionando, com todos os dados dos sensores produtores sendo processados normalmente. O consumidor restante é automaticamente designado como líder de todas partições do cluster.
 
-**Procedimento**:
-1. Iniciar sistema completo: `make all`
-2. Verificar logs dos produtores: `make logs-producers`
-3. Verificar logs dos consumidores: `make logs-consumers`
-4. Acessar dashboard web: http://localhost:5000
-5. Acessar Kafka UI: http://localhost:8080
+Sistema completo em execução:
 
-**Critérios de sucesso**:
-- ✓ Todos os serviços iniciam sem erros
-- ✓ Sensores geram leituras periodicamente
-- ✓ Mensagens aparecem nos tópicos Kafka
-- ✓ Consumidores processam mensagens
-- ✓ Dados persistidos no PostgreSQL
-- ✓ Dashboard exibe métricas em tempo real
+(foto docker ps depois de make all)
 
-**Resultado**: ✅ PASSOU
+Derrubando dois consumers:
+
+(foto kill de dois consumers)
+
+Print da interface com as partições rebalanceadas e o total requests subindo normalmente:
+
+(foto interface)
+
+Pritn do kafka ui:
+
+(foto kafka ui)
 
 ---
 
-#### 4.1.2 Teste de Balanceamento de Carga
+#### 4.1.2 Brokers falharam
 
 **Objetivo**: Verificar distribuição uniforme de carga entre consumidores
 
@@ -379,153 +380,3 @@ GROUP BY processed_by_consumer;
 - ✓ Todas as partições sendo processadas
 
 **Resultado**: ✅ PASSOU
-
----
-
-#### 4.1.3 Teste de Tolerância a Falhas - Consumer
-
-**Objetivo**: Validar rebalanceamento automático de partições
-
-**Procedimento**:
-1. Sistema rodando com 3 consumidores
-2. Observar atribuição inicial de partições
-3. Matar um consumidor: `docker kill consumer-1`
-4. Observar rebalanceamento no dashboard
-5. Verificar que processamento continua
-6. Reiniciar consumidor: `docker start consumer-1`
-7. Observar novo rebalanceamento
-
-**Critérios de sucesso**:
-- ✓ Sistema detecta falha do consumidor
-- ✓ Partições são reatribuídas aos consumidores ativos
-- ✓ Processamento continua sem perda de mensagens
-- ✓ Consumidor reiniciado rejunta o grupo
-- ✓ Partições são redistribuídas novamente
-
-**Resultado**: ✅ PASSOU
-
----
-
-#### 4.1.4 Teste de Tolerância a Falhas - Broker
-
-**Objetivo**: Validar replicação e alta disponibilidade do Kafka
-
-**Procedimento**:
-1. Sistema rodando normalmente
-2. Observar leaders de partições no Kafka UI
-3. Matar um broker: `docker kill kafka1`
-4. Verificar eleição de novos leaders
-5. Confirmar que produtores e consumidores continuam operando
-6. Matar segundo broker: `docker kill kafka2`
-7. Verificar que sistema ainda funciona (tolerância a 2 falhas)
-
-**Critérios de sucesso**:
-- ✓ Eleição automática de novos leaders
-- ✓ Produtores reconectam a brokers disponíveis
-- ✓ Consumidores continuam processando
-- ✓ Nenhuma mensagem perdida (verificar offsets)
-- ✓ Sistema tolera até 2 brokers offline
-
-**Resultado**: ✅ PASSOU
-
----
-
-#### 4.1.5 Teste de Detecção de Anomalias
-
-**Objetivo**: Validar lógica de detecção e geração de alertas
-
-**Procedimento**:
-1. Observar tópico de alertas: `make monitor-alerts`
-2. Aguardar geração de alertas (probabilístico)
-3. Verificar alertas no dashboard
-4. Consultar alertas no banco de dados:
-```sql
-SELECT sensor_id, anomaly_type, severity, sensor_value 
-FROM alerts 
-ORDER BY timestamp_utc DESC 
-LIMIT 10;
-```
-
-**Critérios de sucesso**:
-- ✓ Alertas de warning gerados para valores próximos ao threshold
-- ✓ Alertas críticos gerados para valores acima do threshold
-- ✓ Alertas publicados no tópico Kafka
-- ✓ Alertas persistidos no banco
-- ✓ Dashboard exibe alertas em tempo real
-
-**Resultado**: ✅ PASSOU
-
----
-
-#### 4.1.6 Teste de Performance e Throughput
-
-**Objetivo**: Medir capacidade de processamento do sistema
-
-**Procedimento**:
-1. Sistema rodando com configuração padrão
-2. Coletar métricas por 10 minutos
-3. Consultar throughput via API: `/api/real-time-metrics`
-4. Calcular métricas:
-```sql
--- Mensagens por minuto
-SELECT DATE_TRUNC('minute', processing_timestamp), COUNT(*) 
-FROM sensor_readings 
-GROUP BY DATE_TRUNC('minute', processing_timestamp) 
-ORDER BY 1 DESC LIMIT 10;
-
--- Latência média (aproximada)
-SELECT AVG(EXTRACT(EPOCH FROM (processing_timestamp - timestamp_utc))) 
-FROM sensor_readings 
-WHERE processing_timestamp IS NOT NULL;
-```
-
-**Métricas observadas**:
-- Throughput médio: ~60-100 mensagens/minuto (com 3 sensores)
-- Latência média: < 1 segundo
-- CPU por container: < 5%
-- Memória por container: < 200MB
-
-**Resultado**: ✅ PASSOU - Performance adequada para escala de demonstração
-
----
-
-#### 4.1.7 Teste de Persistência e Recovery
-
-**Objetivo**: Validar que dados não são perdidos após restart
-
-**Procedimento**:
-1. Sistema rodando e processando dados
-2. Anotar último offset processado de cada partição
-3. Parar sistema: `make stop`
-4. Iniciar sistema novamente: `make with-monitoring`
-5. Verificar que consumidores retomam do último offset
-6. Confirmar que nenhuma mensagem foi reprocessada ou perdida
-
-**Critérios de sucesso**:
-- ✓ Offsets persistidos corretamente
-- ✓ Consumidores retomam do ponto correto
-- ✓ Dados do PostgreSQL preservados
-- ✓ Sistema retorna ao estado operacional
-
-**Resultado**: ✅ PASSOU
-
----
-
-### 4.2 Evidências de Teste
-
-*[ESPAÇO RESERVADO PARA SCREENSHOTS]*
-
-#### Screenshot 1: Dashboard - Sistema Operacional
-*Captura do dashboard mostrando todos os componentes ativos*
-
-#### Screenshot 2: Kafka UI - Tópicos e Partições
-*Visualização dos tópicos, partições e consumer groups*
-
-#### Screenshot 3: Rebalanceamento de Consumidor
-*Dashboard mostrando reatribuição de partições após falha*
-
-#### Screenshot 4: Alertas Gerados
-*Lista de alertas detectados pelo sistema*
-
-#### Screenshot 5: Métricas de Performance
-*Gráficos de throughput e distribuição de carga*

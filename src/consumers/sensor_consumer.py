@@ -71,8 +71,8 @@ class SensorConsumer:
             "auto.offset.reset": "earliest",
             "enable.auto.commit": True,
             "auto.commit.interval.ms": 5000,
-            "session.timeout.ms": 30000,
-            "heartbeat.interval.ms": 10000,
+            "session.timeout.ms": 10000,
+            "heartbeat.interval.ms": 5000,
         }
 
         # Setup Kafka producer for alerts

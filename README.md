@@ -166,11 +166,10 @@ Abrir [Kafka UI](http://localhost:8080) - http://localhost:8080
 
 **Cluster KRaft de 3 Nós**:
 - **Kafka moderno**: Sem dependência do ZooKeeper (modo KRaft)
-- **Alta disponibilidade**: 3 brokers com fator de replicação 3
+- **Alta disponibilidade**: 3 brokers com fator de replicação 2
 - **Tópicos**: `sensor-data` (3 partições), `alerts` (2 partições)
 - **Acesso externo**: Portas 9092, 9094, 9096
 - **Distribuição de carga**: Qualquer produtor pode enviar para qualquer broker, qualquer broker pode rotear para qualquer consumidor
-- **Tolerância a falhas**: Sistema continua operacional mesmo com 2 brokers offline
 
 ### Monitoramento & Observabilidade
 
