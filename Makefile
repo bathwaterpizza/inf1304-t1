@@ -164,7 +164,7 @@ topics:
 		--create \
 		--topic sensor-data \
 		--partitions 3 \
-		--replication-factor 2 \
+		--replication-factor 3 \
 		--if-not-exists \
 		--config cleanup.policy=delete \
 		--config retention.ms=604800000
@@ -173,7 +173,7 @@ topics:
 		--create \
 		--topic alerts \
 		--partitions 2 \
-		--replication-factor 2 \
+		--replication-factor 3 \
 		--if-not-exists \
 		--config cleanup.policy=delete \
 		--config retention.ms=2592000000

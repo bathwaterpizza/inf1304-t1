@@ -6,9 +6,11 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 ## Architecture Components
 
 ### 1. Kafka Cluster (Message Brokers)
-- 2+ Kafka broker instances running in separate containers using KRaft mode
+- 3 Kafka broker instances running in separate containers using KRaft mode
 - Built-in Raft consensus protocol for leader election and coordination
-- Topic: `sensor-data` with multiple partitions and replication
+- Topic: `sensor-data` with 3 partitions and replication factor 3
+- Topic: `alerts` with 2 partitions and replication factor 3
+- High availability: tolerates up to 2 broker failures simultaneously
 
 ### 2. Sensor Simulators (Producers)
 - Single unified Python application (`sensor_producer.py`) that simulates factory sensors
@@ -88,8 +90,8 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
 
 **Tasks**:
 1. Create script to initialize Kafka topics:
-   - Topic: `sensor-data` with 3 partitions, replication factor 2 ✅
-   - Topic: `alerts` for processed alerts ✅
+   - Topic: `sensor-data` with 3 partitions, replication factor 3 ✅
+   - Topic: `alerts` with 2 partitions, replication factor 3 ✅
 
 2. Test Kafka cluster connectivity ✅
 3. Verify topic creation and configuration ✅
@@ -227,7 +229,7 @@ Implementation of a distributed sensor monitoring system for a smart factory usi
    - Resource cleanup and connection closing
 
 3. Test scenarios:
-   - Single broker failure (verify replication works)
+   - Single/double broker failure (verify replication factor 3 works - tolerates up to 2 broker failures)
    - Consumer failure (verify rebalancing)
    - Network partitions (verify resilience)
    - High load scenarios (verify load balancing)
