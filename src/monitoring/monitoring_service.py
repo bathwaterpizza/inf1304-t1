@@ -378,12 +378,11 @@ def get_partition_assignment():
         """)
         assignment_data = cursor.fetchall()
 
-        # Get recent message counts per partition
+        # Get total message counts per partition
         cursor.execute("""
             SELECT kafka_partition, COUNT(*) as message_count
             FROM sensor_readings 
-            WHERE processing_timestamp >= NOW() - INTERVAL '5 minutes'
-            AND kafka_partition IS NOT NULL
+            WHERE kafka_partition IS NOT NULL
             GROUP BY kafka_partition
             ORDER BY kafka_partition
         """)

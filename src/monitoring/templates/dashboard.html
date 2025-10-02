@@ -392,14 +392,14 @@
                     `;
                 });
                 
-                html += '<h4>Partition Activity (5min):</h4>';
+                html += '<h4>Total Partition Activity:</h4>';
                 const partitionActivity = data.partition_activity || {};
                 if (Object.keys(partitionActivity).length > 0) {
                     Object.entries(partitionActivity).forEach(([partition, count]) => {
                         html += `
                             <div class="metric-row">
                                 <span>Partition ${partition}</span>
-                                <span class="metric-value">${count} messages</span>
+                                <span class="metric-value">${count} total</span>
                             </div>
                         `;
                     });
