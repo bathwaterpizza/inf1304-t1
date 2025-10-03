@@ -136,8 +136,13 @@ clean:
 	@echo "Cleaning up Factory Monitoring System..."
 	@echo "This will remove all containers, networks, and volumes!"
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
-	@docker compose down -v
-	@docker system prune -f
+	-@docker compose down -v
+	-@docker system prune -f
+	-@docker stop $$(docker ps -aq)
+	-@docker rm $$(docker ps -aq)
+	-@docker rmi $$(docker images -q)
+	-@docker volume rm $$(docker volume ls -q)
+	-@docker builder prune
 	@echo "Cleanup completed!"
 
 # View aggregated logs

@@ -278,7 +278,16 @@
                 let html = '';
                 if (data.status) {
                     for (const [componentType, info] of Object.entries(data.status)) {
-                        const statusClass = info.active_count > 0 ? 'status-active' : 'status-inactive';
+                        // Green if all active, yellow if some active, red if none active
+                        let statusClass;
+                        if (info.active_count === info.total_count) {
+                            statusClass = 'status-active';  // All active - green
+                        } else if (info.active_count > 0) {
+                            statusClass = 'status-warning';  // Some active - yellow
+                        } else {
+                            statusClass = 'status-inactive';  // None active - red
+                        }
+                        
                         html += `
                             <div class="metric-row">
                                 <span>

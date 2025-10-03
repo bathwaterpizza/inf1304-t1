@@ -343,22 +343,47 @@ Ao derrubar dois dos três containers de consumidores, podemos observar através
 
 Sistema completo em execução:
 
+```bash
+make all
+```
+
 (foto docker ps depois de make all)
 
+(foto interface funcionando)
+
 Derrubando dois consumers:
+
+```bash
+docker kill consumer-1 consumer-2
+```
 
 (foto kill de dois consumers)
 
 Print da interface com as partições rebalanceadas e o total requests subindo normalmente:
 
-(foto interface)
+(foto interface consumers down, partition reassignment)
 
-Pritn do kafka ui:
-
-(foto kafka ui)
 
 ---
 
 #### 4.1.2 Brokers falharam
 
-Similarmente, ao derrubar dois dos três containers de kafka broker, podemos observar através da interface de monitoramento, ou do Kafka UI, que o sistema continua funcionando com o mesmo throughput. O broker restante automaticamente se torna o líder e toma responsabilidade de todas as partições.
+Similarmente, ao derrubar um dos três containers de kafka broker, podemos observar através da interface de monitoramento, ou do Kafka UI, que o sistema continua funcionando com o mesmo throughput. O broker restante automaticamente se torna o líder e toma responsabilidade de todas as partições.
+
+Restaurando consumers:
+
+```bash
+docker start consumer-1 consumer-2
+```
+
+
+(foto kafka ui before)
+
+Derrubando dois brokers:
+
+```bash
+docker kill kafka1 kafka2
+```
+
+
+(foto kafka ui after)
