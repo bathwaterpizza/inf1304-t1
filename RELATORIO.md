@@ -339,7 +339,7 @@ O sistema implementa múltiplas estratégias para lidar com falhas:
 
 #### 4.1.1 Consumers falharam
 
-Ao derrubar dois dos três containers de consumidores, podemos observar através da interface de monitoramento que o sistema continua funcionando, com todos os dados dos sensores produtores sendo processados normalmente. O consumidor restante é automaticamente designado como líder de todas partições do cluster.
+Ao derrubar dois dos três containers de consumidores, podemos observar através da interface de monitoramento que o sistema continua funcionando, com todos os dados dos sensores produtores sendo processados normalmente. O consumidor restante é automaticamente designado para consumir todas partições do cluster pelo group coordinator.
 
 Sistema completo em execução:
 
@@ -361,22 +361,4 @@ Pritn do kafka ui:
 
 #### 4.1.2 Brokers falharam
 
-**Objetivo**: Verificar distribuição uniforme de carga entre consumidores
-
-**Procedimento**:
-1. Iniciar sistema com 3 consumidores
-2. Observar atribuição de partições no dashboard
-3. Verificar throughput de cada consumidor
-4. Consultar métricas no PostgreSQL:
-```sql
-SELECT processed_by_consumer, COUNT(*) 
-FROM sensor_readings 
-GROUP BY processed_by_consumer;
-```
-
-**Critérios de sucesso**:
-- ✓ Cada consumidor recebe pelo menos uma partição
-- ✓ Distribuição aproximadamente uniforme de mensagens
-- ✓ Todas as partições sendo processadas
-
-**Resultado**: ✅ PASSOU
+Similarmente, ao derrubar dois dos três containers de kafka broker, podemos observar através da interface de monitoramento, ou do Kafka UI, que o sistema continua funcionando com o mesmo throughput. O broker restante automaticamente se torna o líder e toma responsabilidade de todas as partições.
