@@ -73,38 +73,7 @@ O sistema implementa uma arquitetura de microsserviços distribuídos composta p
 
 ### 2.2 Diagrama de Arquitetura
 
-```mermaid
-graph TB
-    subgraph "Sensor Producers"
-        SP1[Temperature Sensor]
-        SP2[Vibration Sensor] 
-        SP3[Energy Sensor]
-    end
-    
-    subgraph "Kafka Cluster - 3 Brokers"
-        K1[Kafka Broker 1<br/>Port 9092]
-        K2[Kafka Broker 2<br/>Port 9094]
-        K3[Kafka Broker 3<br/>Port 9096]
-    end
-    
-    subgraph "Data Consumers"
-        C1[Consumer 1<br/>sensor-processors]
-        C2[Consumer 2<br/>sensor-processors]
-        C3[Consumer 3<br/>sensor-processors]
-    end
-    
-    subgraph "Storage & Monitoring"
-        PG[(PostgreSQL 15)]
-        MS[Monitoring Service<br/>Flask API]
-        DB[Dashboard Web<br/>Port 5000]
-    end
-    
-    SP1 & SP2 & SP3 --> K1 & K2 & K3
-    K1 & K2 & K3 --> C1 & C2 & C3
-    C1 & C2 & C3 --> PG
-    MS --> PG
-    MS --> DB
-```
+![Arquiteture](screenshots/architecture.png)
 
 ### 2.3 Componentes Detalhados
 
@@ -341,49 +310,41 @@ O sistema implementa múltiplas estratégias para lidar com falhas:
 
 Ao derrubar dois dos três containers de consumidores, podemos observar através da interface de monitoramento que o sistema continua funcionando, com todos os dados dos sensores produtores sendo processados normalmente. O consumidor restante é automaticamente designado para consumir todas partições do cluster pelo group coordinator.
 
-Sistema completo em execução:
+**Colocando sistema completo em execução:**
 
 ```bash
 make all
 ```
+![Docker PS](screenshots/docker_ps_containers.png)
 
-(foto docker ps depois de make all)
+![Consumer antes](screenshots/consumers_before.png)
 
-(foto interface funcionando)
-
-Derrubando dois consumers:
+**Derrubando dois consumers:**
 
 ```bash
 docker kill consumer-1 consumer-2
 ```
 
-(foto kill de dois consumers)
-
-Print da interface com as partições rebalanceadas e o total requests subindo normalmente:
-
-(foto interface consumers down, partition reassignment)
-
+![Consumer depois](screenshots/consumers_after.png)
 
 ---
 
 #### 4.1.2 Brokers falharam
 
-Similarmente, ao derrubar um dos três containers de kafka broker, podemos observar através da interface de monitoramento, ou do Kafka UI, que o sistema continua funcionando com o mesmo throughput. O broker restante automaticamente se torna o líder e toma responsabilidade de todas as partições.
+Similarmente, ao derrubar um dos três containers de kafka broker (não podemos derrubar dois pois o kafka precisa de consenso da metade para eleição de líder), podemos observar através da interface de monitoramento, ou do Kafka UI, que o sistema continua funcionando com o mesmo throughput. Os brokers restante automaticamente se organizam para assumir a partição do broker que caiu.
 
-Restaurando consumers:
+**Restaurando consumers:**
 
 ```bash
 docker start consumer-1 consumer-2
 ```
 
+![Kafka antes](screenshots/kafka_before.png)
 
-(foto kafka ui before)
-
-Derrubando dois brokers:
+**Derrubando um broker:**
 
 ```bash
-docker kill kafka1 kafka2
+docker kill kafka1
 ```
 
-
-(foto kafka ui after)
+![Kafka depois](screenshots/kafka_after.png)
